@@ -1,38 +1,6 @@
-<<<<<<< HEAD
 .env
 .kis_token_cache.json
 __pycache__/
 *.pyc
 .venv/
 venv/
-=======
-# Secrets and local credentials
-.env
-.env.*
-!.env.example
-.kis_token_cache.json
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# Virtual environments
-.venv/
-venv/
-env/
-
-# Local editor settings
-.vscode/
-
-# Logs and local runtime files
-logs/
-*.log
-
-# OS files
-.DS_Store
-Thumbs.db
->>>>>>> 3b074537335087245e5938552d6053d40cdbd271
