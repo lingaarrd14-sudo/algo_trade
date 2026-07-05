@@ -6,6 +6,11 @@
 import kis_config
 import kis_client
 
+# ↓ 26.07.05 추가: 해외 주문/체결 조회 함수가 오늘 날짜를 정상적으로 보내도록 날짜 모듈 추가
+from datetime import datetime
+import kis_config
+import kis_client
+
 def inquire_price(token: str, market_code: str, ticker: str) -> dict:
     """
     해외주식의 실시간/지연 현재 시세 및 호가 정보를 조회합니다.
@@ -62,21 +67,42 @@ def order_stock(token: str, order_type: str, market_code: str, ticker: str, quan
         body=body,
     )
 
-
+# ↓ 26.07.05 추가: 오늘날짜 생성 추가, 필수 날짜 파라미터 입력
 def inquire_order_history(token: str) -> dict:
-    """오늘 발생한 해외주식의 전체 주문 내역 및 체결 상태를 상세히 조회합니다."""
+    """
+    오늘 발생한 해외주식의 전체 주문 내역 및 체결 상태를 상세히 조회합니다.
+    (API: 해외주식 주문체결내역 조회 - TTTS3035R / VTTS3035R)
+    """
+    # 현재 환경(모의투자/실전투자)에 맞추어 적절한 거래 ID(TR_ID)를 자동으로 선택합니다.
     tr_id = kis_config.OVERSEAS_ORDER_HISTORY_TR_ID_PAPER if kis_config.is_paper() else kis_config.OVERSEAS_ORDER_HISTORY_TR_ID_REAL
 
+    # 조회에 필요한 시작일과 종료일을 지정하기 위해 오늘 날짜를 YYYYMMDD 형태로 생성합니다.
+    today = datetime.now().strftime("%Y%m%d")
+
     params = {
-        "CANO": kis_config.ACCOUNT_NO,
-        "ACNT_PRDT_CD": kis_config.ACCOUNT_PRODUCT_CODE,
-        "OVRS_EXCG_CD": "NASD",        # 미국 시장 통합 조회 관례로 주로 'NASD' 사용
-        "SLL_BUY_DVSN_CD": "00",       # 00: 전체 조회 (01:매도, 02:매수)
-        "INQR_DVSN": "00",            # 00: 전체 내역 필터링
-        "PDNO": "",                    # 특정 종목 지정 시 입력, 공백 시 계좌 전체
-        "CTX_AREA_FK200": "",          # 연속조회 키 (첫 페이지 공백)
-        "CTX_AREA_NK200": "",          # 연속조회 키 (첫 페이지 공백)
+        # 1. 계좌 기본 정보
+        "CANO": kis_config.ACCOUNT_NO,                 # 종합계좌번호 (앞 8자리)
+        "ACNT_PRDT_CD": kis_config.ACCOUNT_PRODUCT_CODE, # 계좌상품코드 (일반적으로 '01')
+        
+        # 2. 조회 필터링 정보
+        "PDNO": "",                                    # 특정 종목코드(티커). 공백("") 기입 시 계좌 내 전 종목 조회
+        "ORD_STRT_DT": today,                          # 조회 시작일자 (YYYYMMDD 형식, 현지시각 기준)
+        "ORD_END_DT": today,                           # 조회 종료일자 (YYYYMMDD 형식, 현지시각 기준)
+        "SLL_BUY_DVSN": "00",                          # 매도매수구분 (00: 전체, 01: 매도, 02: 매수)
+        "CCLD_NCCS_DVSN": "00",                        # 체결미체결구분 (00: 전체, 01: 체결, 02: 미체결) - 모의투자는 "00"만 가능
+        "OVRS_EXCG_CD": "NASD",                        # 해외거래소코드 (미국 시장 전체를 통합 조회할 때 주로 'NASD' 사용)
+        
+        # 3. 정렬 및 특정 주문 지정 정보
+        "SORT_SQN": "DS",                              # 정렬순서 (DS: 내림차순-최신순, AS: 오름차순-과거순)
+        "ORD_DT": "",                                  # 특정 주문일자 (기간 조회 시 공백 유지)
+        "ORD_GNO_BRNO": "",                            # 주문지점번호 (일반 사용자는 공백 유지)
+        "ODNO": "",                                    # 특정 원주문번호 (특정 주문 1건만 조회할 때 입력, 평소엔 공백)
+        
+        # 4. 페이징(연속조회) 처리 정보
+        "CTX_AREA_NK200": "",                          # 연속조회 키 1 (첫 페이지 조회 시 공백 기입)
+        "CTX_AREA_FK200": "",                          # 연속조회 키 2 (첫 페이지 조회 시 공백 기입)
     }
+    
     return kis_client.get(
         endpoint=kis_config.OVERSEAS_ORDER_HISTORY_ENDPOINT,
         tr_id=tr_id,
