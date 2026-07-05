@@ -67,27 +67,26 @@ DOMESTIC_BALANCE_TR_ID_PAPER = "VTTC8434R" # 모의 잔고
 # =========================================================
 # 6. 해외주식(OVERSEAS) API 설정 상수
 # =========================================================
-# [해외] 현재가 조회 (상세지연 및 실시간 시세)
-OVERSEAS_PRICE_ENDPOINT = "/uapi/overseas-stock/v1/quotations/price"
+# [해외] 현재가 조회 (상세지연 및 실시간 시세) (26.07.05 수정): 공식api문서 TR ID로 교체
+OVERSEAS_PRICE_ENDPOINT = "/uapi/overseas-price/v1/quotations/price"
 OVERSEAS_PRICE_TR_ID = "HHDFS00000300"
 
-# [해외] 주식 주문 (매수/매도 공통 엔드포인트)
+# [해외] 주식 주문 (26.07.05 수정): 공식api문서 TR ID로 교체
 OVERSEAS_ORDER_ENDPOINT = "/uapi/overseas-stock/v1/trading/order"
-OVERSEAS_BUY_TR_ID_REAL = "JTTT1002U"   # 실전 매수
-OVERSEAS_SELL_TR_ID_REAL = "JTTT1001U"  # 실전 매도
-OVERSEAS_BUY_TR_ID_PAPER = "VTTT1002U"  # 모의 매수
-OVERSEAS_SELL_TR_ID_PAPER = "VTTT1001U" # 모의 매도
+OVERSEAS_BUY_TR_ID_REAL = "TTTT1002U"   
+OVERSEAS_SELL_TR_ID_REAL = "TTTT1001U"  
+OVERSEAS_BUY_TR_ID_PAPER = "VTTT1002U"  
+OVERSEAS_SELL_TR_ID_PAPER = "VTTT1001U" 
 
-# [해외] 주문/체결 및 미체결 조회
-OVERSEAS_ORDER_HISTORY_ENDPOINT = "/uapi/overseas-stock/v1/trading/inquire-ccld"
-OVERSEAS_ORDER_HISTORY_TR_ID_REAL = "TTTT1006R"  # 실전 조회
-OVERSEAS_ORDER_HISTORY_TR_ID_PAPER = "VTTT1006R" # 모의 조회
+# [해외] 주문/체결 조회 (끝부분을 ccnl 로 수정) (26.07.05 수정): 공식api문서 TR ID로 교체
+OVERSEAS_ORDER_HISTORY_ENDPOINT = "/uapi/overseas-stock/v1/trading/inquire-ccnl"
+OVERSEAS_ORDER_HISTORY_TR_ID_REAL = "TTTS3035R"
+OVERSEAS_ORDER_HISTORY_TR_ID_PAPER = "VTTS3035R"
 
-# [해외] 잔고 조회
+# [해외] 잔고 조회 (26.07.05 수정): 공식api문서 TR ID로 교체
 OVERSEAS_BALANCE_ENDPOINT = "/uapi/overseas-stock/v1/trading/inquire-balance"
-OVERSEAS_BALANCE_TR_ID_REAL = "CTRP6504R"  # 실전 잔고
-OVERSEAS_BALANCE_TR_ID_PAPER = "VTRP6504R" # 모의 잔고
-
+OVERSEAS_BALANCE_TR_ID_REAL = "TTTS3012R"
+OVERSEAS_BALANCE_TR_ID_PAPER = "VTTS3012R"
 
 # =========================================================
 # 7. 실행 환경 판단용 헬퍼 함수
