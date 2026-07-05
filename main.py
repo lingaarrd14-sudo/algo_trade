@@ -1,15 +1,16 @@
 """
 파일명: main.py
-역할: 국내 및 해외주식 자동매매 프로그램의 실행 흐름을 제어하고 API 동작을 검증하는 메인 파일
+역할: 정해진 시간에 삼성전자와 애플을 시장가로 매수/매도하는 자동매매 실행 파일
 """
 
 import json
 import time
+from datetime import datetime
 
-# 인증 모듈에서 토큰 발급 함수 가져오기
+# 인증 모듈에서 Access Token 발급 함수 가져오기
 from kis_auth import issue_access_token
 
-# 국내/해외 주식 모듈을 별칭(Alias)을 사용하여 임포트 (함수명 충돌 방지)
+# 국내/해외 주식 모듈을 별칭으로 임포트
 import kis_domestic_stock as domestic
 import kis_overseas_stock as overseas
 
@@ -19,132 +20,199 @@ import kis_overseas_stock as overseas
 # =========================================================
 def print_result(title: str, data: dict) -> None:
     """
-    API 응답 결과를 콘솔 창에 보기 좋게 정렬하여 출력합니다.
-    
-    :param title: 출력할 테스트 항목의 제목
-    :param data: 한국투자증권 Open API가 반환한 JSON(dict) 데이터
+    API 응답 결과를 콘솔에 보기 좋게 출력합니다.
+
+    :param title: 출력 제목
+    :param data: 한국투자증권 Open API가 반환한 JSON(dict) 응답
     """
     print(f"\n========== {title} ==========")
-    print(f"응답 코드 : {data.get('rt_cd')}")  # rt_cd가 0이면 성공, 그 외는 실패
-    print(f"메시지    : {data.get('msg1')}")   # 서버에서 보내준 상세 메시지
-
-    # JSON 데이터를 들여쓰기(indent=2) 처리하여 가독성 높게 출력
+    print(f"응답 코드 : {data.get('rt_cd')}")
+    print(f"메시지    : {data.get('msg1')}")
     print(json.dumps(data, ensure_ascii=False, indent=2))
 
 
 # =========================================================
-# 국내주식 API 테스트 시나리오
+# 국내주식 주문 실행 함수
 # =========================================================
-def domestic_test(token: str) -> None:
+def execute_domestic_order(token: str, order_type: str, stock_code: str, quantity: int) -> None:
     """
-    국내주식 관련 API 기능들을 순차적으로 검증합니다.
-    """
-    print("\n=========================================================")
-    print(">>> [1] 국내주식 API 테스트 시작")
-    print("=========================================================")
-    
-    # 테스트 종목: 삼성전자 (6자리 종목코드)
-    stock_code = "005930"
+    국내주식 주문 1회를 실행하고, 주문 전후 상태를 함께 조회합니다.
 
-    # 1. 국내 현재가 조회
+    :param token: 유효한 Access Token
+    :param order_type: 주문 종류 ('buy' 또는 'sell')
+    :param stock_code: 국내주식 6자리 종목코드
+    :param quantity: 주문 수량
+    """
+    side_name = "매수" if order_type == "buy" else "매도"
+
     price_data = domestic.inquire_price(token, stock_code)
-    print_result("국내 현재가 조회", price_data)
-    time.sleep(1.0)  # 과도한 API 호출로 인한 당사 규제(초당 호출 제한) 방지
+    print_result(f"국내 현재가 조회 ({stock_code})", price_data)
+    time.sleep(1.0)
 
-    # 2. 국내 매수 주문 (실제 돈이 나가므로 테스트할 때만 아래 주석을 해제하세요)
-    # buy_result = domestic.order_stock(
-    #      token=token,
-    #      order_type="buy",
-    #      stock_code=stock_code,
-    #      quantity=1,
-    #      price=70000,
-    # )
-    # print_result("국내 현금 매수 주문", buy_result)
-    # time.sleep(1.0)
+    order_result = domestic.order_stock(
+        token=token,
+        order_type=order_type,
+        stock_code=stock_code,
+        quantity=quantity,
+    )
+    print_result(f"국내 시장가 {side_name} 주문", order_result)
+    time.sleep(1.0)
 
-    # 3. 국내 당일 주문/체결 내역 조회
     order_history = domestic.inquire_order_history(token)
     print_result("국내 주문/체결 조회", order_history)
     time.sleep(1.0)
 
-    # 4. 국내 당일 미체결 주문 조회 (필요 시 주석 해제)
-    # unfilled = domestic.inquire_unfilled_orders(token)
-    # print_result("국내 미체결 조회", unfilled)
-    # time.sleep(1.0)
+    unfilled = domestic.inquire_unfilled_orders(token)
+    print_result("국내 미체결 조회", unfilled)
+    time.sleep(1.0)
 
-    # 5. 국내 계좌 잔고 및 보유 종목 조회
     balance = domestic.inquire_balance(token)
     print_result("국내 잔고 조회", balance)
 
 
 # =========================================================
-# 해외주식 API 테스트 시나리오
+# 해외주식 주문 실행 함수
 # =========================================================
-def overseas_test(token: str) -> None:
+def execute_overseas_order(
+    token: str,
+    order_type: str,
+    market_price_code: str,
+    market_order_code: str,
+    ticker: str,
+    quantity: int,
+) -> None:
     """
-    해외주식(미국) 관련 API 기능들을 순차적으로 검증합니다.
+    해외주식 주문 1회를 실행하고, 주문 전후 상태를 함께 조회합니다.
+
+    :param token: 유효한 Access Token
+    :param order_type: 주문 종류 ('buy' 또는 'sell')
+    :param market_price_code: 시세 조회용 거래소 코드 (예: NAS)
+    :param market_order_code: 주문 전송용 거래소 코드 (예: NASD)
+    :param ticker: 해외 종목 티커
+    :param quantity: 주문 수량
     """
-    print("\n=========================================================")
-    print(">>> [2] 해외주식 API 테스트 시작")
-    print("=========================================================")
-    
-    # 테스트 종목: 애플 (AAPL)
-    # 한투 API 특성상 시세 조회용 거래소 코드와 주문용 거래소 코드가 다릅니다.
-    market_price = "NAS"   # 시세 조회용 시장코드 (NAS: 나스닥)
-    market_order = "NASD"  # 주문 전송용 시장코드 (NASD: 나스닥)
-    ticker = "AAPL"        # 종목 심볼(티커)
+    side_name = "매수" if order_type == "buy" else "매도"
 
-    # 1. 해외 현재가 조회
-    price_data = overseas.inquire_price(token, market_price, ticker)
-    print_result("해외 현재가 조회", price_data)
-    time.sleep(1.0)  # 초당 호출 제한(트래픽 제어)을 위한 휴식
+    price_data = overseas.inquire_price(token, market_price_code, ticker)
+    print_result(f"해외 현재가 조회 ({ticker})", price_data)
+    time.sleep(1.0)
 
-    # 2. 해외 매수 주문 (실제 달러 자산이 사용되므로 테스트 시에만 주석을 해제하세요)
-    # buy_result = overseas.order_stock(
-    #     token=token,
-    #     order_type="buy",
-    #     market_code=market_order,
-    #     ticker=ticker,
-    #     quantity=1,
-    #     price=180.50,  # 해외주식은 소수점 단가 주문이 가능하므로 float 전달 가능
-    # )
-    # print_result("해외 해외 지정가 매수 주문", buy_result)
-    # time.sleep(1.0)
+    order_result = overseas.order_stock(
+        token=token,
+        order_type=order_type,
+        market_code=market_order_code,
+        ticker=ticker,
+        quantity=quantity,
+    )
+    print_result(f"해외 시장가 {side_name} 주문", order_result)
+    time.sleep(1.0)
 
-    # 3. 해외 당일 주문/체결 내역 조회
     order_history = overseas.inquire_order_history(token)
     print_result("해외 주문/체결 조회", order_history)
     time.sleep(1.0)
 
-    # 4. 해외 당일 미체결 주문 조회 (필요 시 주석 해제)
-    # unfilled = overseas.inquire_unfilled_orders(token)
-    # print_result("해외 미체결 조회", unfilled)
-    # time.sleep(1.0)
+    unfilled = overseas.inquire_unfilled_orders(token)
+    print_result("해외 미체결 조회", unfilled)
+    time.sleep(1.0)
 
-    # 5. 해외 계좌 자산 및 외화 잔고 조회
     balance = overseas.inquire_balance(token)
     print_result("해외 잔고 및 자산 조회", balance)
 
 
 # =========================================================
-# 프로그램 시작점 (Main Controller)
+# 자동매매 스케줄러
 # =========================================================
 def main() -> None:
     """
-    Access Token을 통합 발급받은 후, 
-    국내주식 및 해외주식 테스트 시나리오를 컨트롤합니다.
+    평일 기준으로 지정된 시간에 시장가 주문을 1회씩 실행합니다.
+
+    - 국내: 삼성전자 매수/매도
+    - 해외: 애플 매수/매도
     """
-    # 1. 공통 Access Token 발급 (만료 시 내부 캐시에서 자동 갱신됨)
-    token = issue_access_token()
+    # 국내 주문 설정
+    samsung_code = "005930"
+    samsung_quantity = 1
 
-    # 2. 국내주식 매매 프로세스 테스트
-    domestic_test(token)
-    time.sleep(1.5)  # 국내와 해외 테스트 사이의 여유 시간 확보
+    # 해외 주문 설정
+    apple_price_market_code = "NAS"
+    apple_order_market_code = "NASD"
+    apple_ticker = "AAPL"
+    apple_quantity = 1
 
-    # 3. 해외주식 매매 프로세스 테스트
-    overseas_test(token)
+    # 주문 실행 시간 (서버 로컬 시간 기준)
+    domestic_buy_time = "09:05"
+    domestic_sell_time = "15:20"
+    overseas_buy_time = "22:35"
+    overseas_sell_time = "04:55"
+
+    # 프로세스 실행 중 같은 날짜에 같은 주문이 중복 실행되는 것을 방지
+    ran = set()
+
+    print("자동매매 스케줄러 시작")
+    print(f"국내: {domestic_buy_time} 삼성전자 매수, {domestic_sell_time} 삼성전자 매도")
+    print(f"해외: {overseas_buy_time} 애플 매수, {overseas_sell_time} 애플 매도")
+
+    while True:
+        now = datetime.now()
+        today = now.strftime("%Y-%m-%d")
+        current_time = now.strftime("%H:%M")
+        weekday = now.weekday()  # 월=0, 금=4, 토=5, 일=6
+
+        try:
+            # 평일 낮: 삼성전자 시장가 매수
+            if weekday < 5 and current_time == domestic_buy_time and (today, "domestic_buy") not in ran:
+                token = issue_access_token()
+                execute_domestic_order(
+                    token=token,
+                    order_type="buy",
+                    stock_code=samsung_code,
+                    quantity=samsung_quantity,
+                )
+                ran.add((today, "domestic_buy"))
+
+            # 평일 낮: 삼성전자 시장가 매도
+            if weekday < 5 and current_time == domestic_sell_time and (today, "domestic_sell") not in ran:
+                token = issue_access_token()
+                execute_domestic_order(
+                    token=token,
+                    order_type="sell",
+                    stock_code=samsung_code,
+                    quantity=samsung_quantity,
+                )
+                ran.add((today, "domestic_sell"))
+
+            # 평일 밤: 애플 시장가 매수
+            if weekday < 5 and current_time == overseas_buy_time and (today, "overseas_buy") not in ran:
+                token = issue_access_token()
+                execute_overseas_order(
+                    token=token,
+                    order_type="buy",
+                    market_price_code=apple_price_market_code,
+                    market_order_code=apple_order_market_code,
+                    ticker=apple_ticker,
+                    quantity=apple_quantity,
+                )
+                ran.add((today, "overseas_buy"))
+
+            # 화~토 새벽: 전날 밤 미국장 매수분 애플 시장가 매도
+            if 1 <= weekday <= 5 and current_time == overseas_sell_time and (today, "overseas_sell") not in ran:
+                token = issue_access_token()
+                execute_overseas_order(
+                    token=token,
+                    order_type="sell",
+                    market_price_code=apple_price_market_code,
+                    market_order_code=apple_order_market_code,
+                    ticker=apple_ticker,
+                    quantity=apple_quantity,
+                )
+                ran.add((today, "overseas_sell"))
+
+        except Exception as exc:
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 오류: {exc}")
+
+        # 분 단위 스케줄 확인용 대기 시간
+        time.sleep(20)
 
 
 if __name__ == "__main__":
-    # 이 파일이 본래 목적으로 실행될 때만 main()을 수행 (외부 모듈 import 시 자동 실행 방지)[cite: 7]
     main()
