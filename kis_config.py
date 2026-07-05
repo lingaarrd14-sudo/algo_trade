@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 # =========================================================
 BASE_DIR = Path(__file__).parent
 # override=True를 주어 시스템 환경변수보다 .env 파일의 설정을 우선하도록 합니다.
-load_dotenv(BASE_DIR / "kis_key.env", override=True)
+load_dotenv(BASE_DIR / ".env", override=True)
 
 # =========================================================
 # 2. 실행 환경 및 계좌 인증 정보 관리
