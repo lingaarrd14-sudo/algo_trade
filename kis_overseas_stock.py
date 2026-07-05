@@ -8,8 +8,6 @@ import kis_client
 
 # ↓ 26.07.05 추가: 해외 주문/체결 조회 함수가 오늘 날짜를 정상적으로 보내도록 날짜 모듈 추가
 from datetime import datetime
-import kis_config
-import kis_client
 
 def inquire_price(token: str, market_code: str, ticker: str) -> dict:
     """
@@ -114,16 +112,24 @@ def inquire_order_history(token: str) -> dict:
 def inquire_unfilled_orders(token: str) -> dict:
     """오늘 보낸 해외 주문 중 아직 완전히 체결되지 않고 남아있는 미체결 계약만 조회합니다."""
     tr_id = kis_config.OVERSEAS_ORDER_HISTORY_TR_ID_PAPER if kis_config.is_paper() else kis_config.OVERSEAS_ORDER_HISTORY_TR_ID_REAL
+    today = datetime.now().strftime("%Y%m%d")
 
     params = {
         "CANO": kis_config.ACCOUNT_NO,
         "ACNT_PRDT_CD": kis_config.ACCOUNT_PRODUCT_CODE,
-        "OVRS_EXCG_CD": "NASD",
-        "SLL_BUY_DVSN_CD": "00",
-        "INQR_DVSN": "02",            # ★ 02로 세팅하여 미체결 항목만 쏙 골라냅니다.
         "PDNO": "",
-        "CTX_AREA_FK200": "",
+        "ORD_STRT_DT": today,
+        "ORD_END_DT": today,
+        "SLL_BUY_DVSN": "00",
+        # 모의투자는 "00"(전체)만 지원. 실전투자일 때만 "02"(미체결)로 필터링
+        "CCLD_NCCS_DVSN": "00" if kis_config.is_paper() else "02",
+        "OVRS_EXCG_CD": "NASD",
+        "SORT_SQN": "DS",
+        "ORD_DT": "",
+        "ORD_GNO_BRNO": "",
+        "ODNO": "",
         "CTX_AREA_NK200": "",
+        "CTX_AREA_FK200": "",
     }
     return kis_client.get(
         endpoint=kis_config.OVERSEAS_ORDER_HISTORY_ENDPOINT,
