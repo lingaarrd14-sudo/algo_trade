@@ -30,7 +30,7 @@ def inquire_price(token: str, market_code: str, ticker: str) -> dict:
     )
 
 
-def order_stock(token: str, order_type: str, market_code: str, ticker: str, quantity: int, price: float) -> dict:
+def order_stock(token: str, order_type: str, market_code: str, ticker: str, quantity: int, price: float = 0) -> dict:
     """
     해외주식 지정을 현금 매수 또는 매도 주문합니다.
     
@@ -38,7 +38,7 @@ def order_stock(token: str, order_type: str, market_code: str, ticker: str, quan
     :param market_code: 주문용 거래소 코드 (NASD: 나스닥, NYSE: 뉴욕, AMEX: 아멕스)
     :param ticker: 해외 종목 심볼 기호
     :param quantity: 주문 수량
-    :param price: 주문 단가 (float 타입을 지원하여 달러 소수점 입력 가능)
+    :param price: 주문 단가 (시장가 주문에서는 사용하지 않음)
     """
     # 환경(모의/실전)과 매수/매도 여부에 따른 정확한 해외 TR_ID 선택
     if order_type == "buy":
@@ -55,8 +55,9 @@ def order_stock(token: str, order_type: str, market_code: str, ticker: str, quan
         "OVRS_EXCG_CD": market_code,   # 주문용 거래소 코드 (주의: 시세용과 다름)
         "PDNO": ticker,                # 종목 티커
         "ORD_QTY": str(quantity),      # 수량 문자열
-        "ORD_UNPR": f"{price:.2f}",    # 해외주식 소수점 매매를 고려해 둘째자리까지 포맷팅 후 문자열화
-        "ORD_DVSN": "00",              # 00: 지정가 주문
+        "OVRS_ORD_UNPR": "0",          # 시장가 주문은 단가 0
+        "ORD_SVR_DVSN_CD": "0",        # 주문서버구분코드
+        "ORD_DVSN": "01",              # 01: 시장가 주문
     }
     return kis_client.post_order(
         endpoint=kis_config.OVERSEAS_ORDER_ENDPOINT,

@@ -31,14 +31,14 @@ def inquire_price(token: str, stock_code: str) -> dict:
     )
 
 
-def order_stock(token: str, order_type: str, stock_code: str, quantity: int, price: int) -> dict:
+def order_stock(token: str, order_type: str, stock_code: str, quantity: int, price: int = 0) -> dict:
     """
     국내주식 지정을 현금 매수 또는 매도 주문합니다.
     
     :param order_type: 주문 종류 ('buy' 또는 'sell')
     :param stock_code: 국내주식 6자리 종목코드
     :param quantity: 주문 수량
-    :param price: 주문 단가 (지정가 기준)
+    :param price: 주문 단가 (시장가 주문에서는 사용하지 않음)
     """
     # 환경(모의/실전)과 매수/매도 여부에 따른 정확한 TR_ID 선택
     if order_type == "buy":
@@ -53,9 +53,9 @@ def order_stock(token: str, order_type: str, stock_code: str, quantity: int, pri
         "CANO": kis_config.ACCOUNT_NO,
         "ACNT_PRDT_CD": kis_config.ACCOUNT_PRODUCT_CODE,
         "PDNO": stock_code,
-        "ORD_DVSN": "00",              # 00: 지정가 주문
+        "ORD_DVSN": "01",              # 01: 시장가 주문
         "ORD_QTY": str(quantity),      # 수량은 반드시 문자열로 전송
-        "ORD_UNPR": str(price),        # 단가는 반드시 문자열로 전송
+        "ORD_UNPR": "0",               # 시장가 주문은 단가 0
         "EXCG_ID_DVSN_CD": "KRX",      # 한국거래소 표준 코드
         "SLL_TYPE": "",                # 공매도 유형 (일반 유저 필수 공백)
         "CNDT_PRIC": "",               # 조건부 가격 구분 (일반 유저 필수 공백)
