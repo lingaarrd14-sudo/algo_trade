@@ -140,69 +140,155 @@ def inquire_unfilled_orders(token: str) -> dict:
         params=params,
     )
 
-
-#미체결 주문 처리로직
-def handle_unfilled_orders(
-    token: str,
-    max_attempts: int = 3,
-    wait_seconds: int = 10,
-) -> None:
+def handle_unfilled_orders(token: str) -> None:
     """
-    해외 미체결 주문이 남아 있으면 시장가 주문을 다시 보내고, 체결 상태를 반복 확인합니다.
-
-    실제 주문이 반복 전송될 수 있으므로 max_attempts로 재시도 횟수를 제한합니다.
+    해외주식 미체결 주문을 조회하고,
+    1. 기존 미체결 주문 취소
+    2. 미체결 잔량만큼 신규 시장가 주문
     """
-    attempt = 0
+    response = inquire_unfilled_orders(token)
 
-    while attempt < max_attempts:
-        unfilled = inquire_unfilled_orders(token)
-        rows = unfilled.get("output1", [])
-        if isinstance(rows, dict):
-            rows = [rows]
+    if str(response.get("rt_cd", "")) != "0":
+        print(
+            "[해외 미체결 조회 실패]",
+            response.get("msg_cd", ""),
+            response.get("msg1", ""),
+        )
+        return
 
-        unfilled_orders = []
-        for row in rows:
-            ticker = str(row.get("pdno", "")).strip()
-            if not ticker:
+    rows = response.get("output1", [])
+    if isinstance(rows, dict):
+        rows = [rows]
+
+    for row in rows:
+        ticker = str(row.get("pdno", "")).strip()
+        order_no = str(row.get("odno", "")).strip()
+
+        if not ticker or not order_no:
+            continue
+
+        # 미체결수량
+        qty_text = str(
+            row.get("nccs_qty", "")
+        ).replace(",", "").strip()
+
+        if qty_text:
+            try:
+                remaining_qty = int(float(qty_text))
+            except ValueError:
+                continue
+        else:
+            try:
+                order_qty = int(float(
+                    str(
+                        row.get(
+                            "ft_ord_qty",
+                            row.get("ord_qty", "0"),
+                        )
+                    ).replace(",", "") or 0
+                ))
+
+                filled_qty = int(float(
+                    str(
+                        row.get(
+                            "ft_ccld_qty",
+                            row.get("tot_ccld_qty", "0"),
+                        )
+                    ).replace(",", "") or 0
+                ))
+
+                remaining_qty = max(order_qty - filled_qty, 0)
+
+            except ValueError:
                 continue
 
-            side_code = str(row.get("sll_buy_dvsn_cd", row.get("sll_buy_dvsn", ""))).strip()
-            if side_code == "02":
-                order_type = "buy"
-            elif side_code == "01":
-                order_type = "sell"
-            else:
-                print(f"해외 미체결 주문 매수/매도 구분 실패: {row}")
-                continue
+        if remaining_qty <= 0:
+            continue
 
-            remaining_quantity_text = str(row.get("nccs_qty", "")).replace(",", "").strip()
-            if remaining_quantity_text:
-                remaining_quantity = int(float(remaining_quantity_text))
-            else:
-                order_quantity = int(float(str(row.get("ft_ord_qty", row.get("ord_qty", "0"))).replace(",", "") or 0))
-                filled_quantity = int(float(str(row.get("ft_ccld_qty", row.get("tot_ccld_qty", "0"))).replace(",", "") or 0))
-                remaining_quantity = max(order_quantity - filled_quantity, 0)
+        market_code = str(
+            row.get("ovrs_excg_cd", "NASD")
+        ).strip() or "NASD"
 
-            if remaining_quantity > 0:
-                market_code = str(row.get("ovrs_excg_cd", "NASD")).strip() or "NASD"
-                unfilled_orders.append((order_type, market_code, ticker, remaining_quantity))
-
-        if not unfilled_orders:
-            print("해외 미체결 주문 없음")
-            return
-
-        attempt += 1
-        for order_type, market_code, ticker, remaining_quantity in unfilled_orders:
-            order_stock(
-                token=token,
-                order_type=order_type,
-                market_code=market_code,
-                ticker=ticker,
-                quantity=remaining_quantity,
+        side_code = str(
+            row.get(
+                "sll_buy_dvsn_cd",
+                row.get("sll_buy_dvsn", ""),
             )
-        time.sleep(wait_seconds)
+        ).strip()
 
-    print(f"해외 미체결 주문 처리 재시도 한도{max_attempts} 도달")
+        if side_code == "02":
+            order_type = "buy"
+        elif side_code == "01":
+            order_type = "sell"
+        else:
+            print(f"[매수/매도 구분 실패] {ticker}")
+            continue
+
+        # 미국 모의투자 기준
+        tr_id = (
+            kis_config.OVERSEAS_REVISE_CANCEL_TR_ID_PAPER
+            if kis_config.is_paper()
+            else kis_config.OVERSEAS_REVISE_CANCEL_TR_ID_REAL
+        )
+
+        # 1. 기존 주문 취소
+        cancel_body = {
+            "CANO": kis_config.ACCOUNT_NO,
+            "ACNT_PRDT_CD": kis_config.ACCOUNT_PRODUCT_CODE,
+            "OVRS_EXCG_CD": market_code,
+            "PDNO": ticker,
+            "ORGN_ODNO": order_no,
+
+            "RVSE_CNCL_DVSN_CD": "02",  # 취소
+            "ORD_QTY": str(remaining_qty),
+            "OVRS_ORD_UNPR": "0",
+
+            "MGCO_APTM_ODNO": "",
+            "ORD_SVR_DVSN_CD": "0",
+        }
+
+        cancel_result = kis_client.post_order(
+            endpoint=kis_config.OVERSEAS_REVISE_CANCEL_ENDPOINT,
+            tr_id=tr_id,
+            token=token,
+            body=cancel_body,
+        )
+
+        if str(cancel_result.get("rt_cd", "")) != "0":
+            print(
+                f"[취소 실패] {ticker} / "
+                f"{order_no} / "
+                f"{cancel_result.get('msg_cd', '')} / "
+                f"{cancel_result.get('msg1', '')}"
+            )
+            continue
+
+        print(
+            f"[취소 성공] {ticker} / "
+            f"{remaining_qty}주"
+        )
+
+        # 2. 취소 성공한 경우에만 신규 시장가 주문
+        order_result = order_stock(
+            token=token,
+            order_type=order_type,
+            market_code=market_code,
+            ticker=ticker,
+            quantity=remaining_qty,
+        )
+
+        if str(order_result.get("rt_cd", "")) == "0":
+            print(
+                f"[시장가 재주문 성공] "
+                f"{ticker} / {remaining_qty}주"
+            )
+        else:
+            print(
+                f"[시장가 재주문 실패] "
+                f"{ticker} / {remaining_qty}주 / "
+                f"{order_result.get('msg_cd', '')} / "
+                f"{order_result.get('msg1', '')}"
+            )
 
 
 def inquire_balance(token: str) -> dict:

@@ -128,61 +128,96 @@ def inquire_unfilled_orders(token: str) -> dict:
         params=params,
     )
 
-#미체결 주문 처리로직
-def handle_unfilled_orders(
-    token: str,
-    max_attempts: int = 3,
-    wait_seconds: int = 10,
-) -> None:
+def handle_unfilled_orders(token: str) -> None:
     """
-    미체결 주문이 남아 있으면 시장가 주문을 다시 보내고, 체결 상태를 반복 확인합니다.
-
-    실제 주문이 반복 전송될 수 있으므로 max_attempts로 재시도 횟수를 제한합니다.
+    국내주식 미체결 주문을 조회하고,
+    각 주문의 미체결 잔량 전체를 시장가로 정정합니다.
     """
-    attempt = 0
 
-    while attempt < max_attempts:
-        unfilled = inquire_unfilled_orders(token)
-        rows = unfilled.get("output1", [])
-        if isinstance(rows, dict):
-            rows = [rows]
+    # 1. 미체결 주문 조회
+    response = inquire_unfilled_orders(token)
 
-        unfilled_orders = []
-        for row in rows:
-            stock_code = str(row.get("pdno", "")).strip()
-            if not stock_code:
-                continue
+    if str(response.get("rt_cd", "")) != "0":
+        print(
+            "[국내 미체결 조회 실패]",
+            response.get("msg_cd", ""),
+            response.get("msg1", ""),
+        )
+        return
 
-            side_code = str(row.get("sll_buy_dvsn_cd", "")).strip()
-            if side_code == "02":
-                order_type = "buy"
-            elif side_code == "01":
-                order_type = "sell"
-            else:
-                print(f"국내 미체결 주문 매수/매도 구분 실패: {row}")
-                continue
+    rows = response.get("output1", [])
 
-            remaining_quantity = int(str(row.get("nccs_qty", "0")).replace(",", "") or 0)
-            if remaining_quantity > 0:
-                unfilled_orders.append((order_type, stock_code, remaining_quantity))
+    if isinstance(rows, dict):
+        rows = [rows]
 
-        if not unfilled_orders:
-            print("국내 미체결 주문 없음")
-            return
+    # 2. 미체결 주문별 시장가 정정
+    for row in rows:
+        order_no = str(row.get("odno", "")).strip()
 
-        attempt += 1
-        print(f"국내 미체결 주문 감지: 시장가 재주문 {attempt}/{max_attempts}")
-        for order_type, stock_code, remaining_quantity in unfilled_orders:
-            order_stock(
-                token=token,
-                order_type=order_type,
-                stock_code=stock_code,
-                quantity=remaining_quantity,
+        if not order_no:
+            continue
+
+        qty_text = str(
+            row.get("nccs_qty", "0")
+        ).replace(",", "").strip()
+
+        try:
+            unfilled_qty = int(float(qty_text or "0"))
+        except (ValueError, TypeError):
+            continue
+
+        if unfilled_qty <= 0:
+            continue
+
+        stock_code = str(row.get("pdno", "")).strip()
+
+        krx_order_org_no = str(
+            row.get("krx_fwdg_ord_orgno", "")
+        ).strip()
+
+        # 모의/실전 TR_ID 선택
+        tr_id = (
+            kis_config.DOMESTIC_REVISE_CANCEL_TR_ID_PAPER
+            if kis_config.is_paper()
+            else kis_config.DOMESTIC_REVISE_CANCEL_TR_ID_REAL
+        )
+
+        # 기존 주문의 미체결 잔량 전체를 시장가로 정정
+        body = {
+            "CANO": kis_config.ACCOUNT_NO,
+            "ACNT_PRDT_CD": kis_config.ACCOUNT_PRODUCT_CODE,
+            "KRX_FWDG_ORD_ORGNO": krx_order_org_no,
+            "ORGN_ODNO": order_no,
+
+            "ORD_DVSN": "01",             # 시장가
+            "RVSE_CNCL_DVSN_CD": "01",    # 정정
+            "ORD_QTY": "0",               # 잔량 전체
+            "ORD_UNPR": "0",              # 시장가
+            "QTY_ALL_ORD_YN": "Y",        # 잔량 전체 정정
+
+            "EXCG_ID_DVSN_CD": "KRX",
+        }
+
+        result = kis_client.post_order(
+            endpoint=kis_config.DOMESTIC_REVISE_CANCEL_ENDPOINT,
+            tr_id=tr_id,
+            token=token,
+            body=body,
+        )
+
+        if str(result.get("rt_cd", "")) == "0":
+            print(
+                f"[시장가 정정 성공] "
+                f"{stock_code} / 주문번호 {order_no} / "
+                f"미체결 {unfilled_qty}주"
             )
-        time.sleep(wait_seconds)
-
-    print("국내 미체결 주문 처리 재시도 한도 도달")
-
+        else:
+            print(
+                f"[시장가 정정 실패] "
+                f"{stock_code} / 주문번호 {order_no} / "
+                f"{result.get('msg_cd', '')} / "
+                f"{result.get('msg1', '')}"
+            )
 
 def inquire_balance(token: str) -> dict:
     """국내주식 계좌의 예수금 및 현재 보유 종목 현황(수익률, 평가금액 등)을 조회합니다."""
