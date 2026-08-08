@@ -130,14 +130,14 @@ def main() -> None:
     - 해외: 애플 매수/매도
     """
     # 국내 주문 설정
-    samsung_code = "005930"
-    samsung_quantity = 1
+    domestic_stock_code = "005930"
+    domestic_stock_quantity = 1
 
     # 해외 주문 설정
-    apple_price_market_code = "NAS"
-    apple_order_market_code = "NASD"
-    apple_ticker = "AAPL"
-    apple_quantity = 1
+    price_market_code = "NAS"
+    order_market_code = "NASD"
+    overseas_stock_ticker = "AAPL"
+    overseas_stock_quantity = 1
 
     # 주문 실행 시간 (서버 로컬 시간 기준)
     domestic_buy_time = "09:05"
@@ -165,8 +165,8 @@ def main() -> None:
                 execute_domestic_order(
                     token=token,
                     order_type="buy",
-                    stock_code=samsung_code,
-                    quantity=samsung_quantity,
+                    stock_code=domestic_stock_code,
+                    quantity=domestic_stock_quantity,
                 )
                 #미체결 주문처리 함수 호출
                 domestic.handle_unfilled_orders(token=token)
@@ -178,8 +178,8 @@ def main() -> None:
                 execute_domestic_order(
                     token=token,
                     order_type="sell",
-                    stock_code=samsung_code,
-                    quantity=samsung_quantity,
+                    stock_code=domestic_stock_code,
+                    quantity=domestic_stock_quantity,
                 )
                 #미체결 주문처리 함수 호출
                 domestic.handle_unfilled_orders(token=token)
@@ -191,10 +191,10 @@ def main() -> None:
                 execute_overseas_order(
                     token=token,
                     order_type="buy",
-                    market_price_code=apple_price_market_code,
-                    market_order_code=apple_order_market_code,
-                    ticker=apple_ticker,
-                    quantity=apple_quantity,
+                    market_price_code=price_market_code,
+                    market_order_code=order_market_code,
+                    ticker=overseas_stock_ticker,
+                    quantity=overseas_stock_quantity,
                 )
                 #미체결 주문처리 함수 호출
                 overseas.handle_unfilled_orders(token=token)
@@ -206,10 +206,10 @@ def main() -> None:
                 execute_overseas_order(
                     token=token,
                     order_type="sell",
-                    market_price_code=apple_price_market_code,
-                    market_order_code=apple_order_market_code,
-                    ticker=apple_ticker,
-                    quantity=apple_quantity,
+                    market_price_code=price_market_code,
+                    market_order_code=order_market_code,
+                    ticker=overseas_stock_ticker,
+                    quantity=overseas_stock_quantity,
                 )
                 #미체결 주문처리 함수 호출
                 overseas.handle_unfilled_orders(token=token)
