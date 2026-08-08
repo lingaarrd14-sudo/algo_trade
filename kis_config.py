@@ -56,6 +56,7 @@ DOMESTIC_SELL_TR_ID_PAPER = "VTTC0011U" # 모의 매도
 
 # [국내] 주문/체결 및 미체결 조회
 DOMESTIC_ORDER_HISTORY_ENDPOINT = "/uapi/domestic-stock/v1/trading/inquire-daily-ccld"
+DOMESTIC_REVISE_CANCEL_ENDPOINT = "/uapi/domestic-stock/v1/trading/order-rvsecncl"  #정정
 DOMESTIC_ORDER_HISTORY_TR_ID_REAL = "TTTC0081R"  # 실전 조회
 DOMESTIC_ORDER_HISTORY_TR_ID_PAPER = "VTTC0081R" # 모의 조회
 
@@ -64,10 +65,13 @@ DOMESTIC_BALANCE_ENDPOINT = "/uapi/domestic-stock/v1/trading/inquire-balance"
 DOMESTIC_BALANCE_TR_ID_REAL = "TTTC8434R"  # 실전 잔고
 DOMESTIC_BALANCE_TR_ID_PAPER = "VTTC8434R" # 모의 잔고
 
+# [국내] 주문 정정/취소
+DOMESTIC_REVISE_CANCEL_TR_ID_PAPER = "VTTC0013U"
+DOMESTIC_REVISE_CANCEL_TR_ID_REAL = "TTTC0013U"
 # =========================================================
 # 6. 해외주식(OVERSEAS) API 설정 상수
 # =========================================================
-# [해외] 현재가 조회 (상세지연 및 실시간 시세) (26.07.05 수정): 공식api문서 TR ID로 교체
+# [해외] 현재가 조회 (상세지연 및 실시간 시세) (26.07.05 수정)
 OVERSEAS_PRICE_ENDPOINT = "/uapi/overseas-price/v1/quotations/price"
 OVERSEAS_PRICE_TR_ID = "HHDFS00000300"
 
@@ -78,16 +82,20 @@ OVERSEAS_SELL_TR_ID_REAL = "TTTT1001U"
 OVERSEAS_BUY_TR_ID_PAPER = "VTTT1002U"  
 OVERSEAS_SELL_TR_ID_PAPER = "VTTT1001U" 
 
-# [해외] 주문/체결 조회 (끝부분을 ccnl 로 수정) (26.07.05 수정): 공식api문서 TR ID로 교체
+# [해외] 주문/체결 조회 (끝부분을 ccnl 로 수정) (26.07.05 수정)
 OVERSEAS_ORDER_HISTORY_ENDPOINT = "/uapi/overseas-stock/v1/trading/inquire-ccnl"
 OVERSEAS_ORDER_HISTORY_TR_ID_REAL = "TTTS3035R"
 OVERSEAS_ORDER_HISTORY_TR_ID_PAPER = "VTTS3035R"
 
-# [해외] 잔고 조회 (26.07.05 수정): 공식api문서 TR ID로 교체
+# [해외] 잔고 조회 (26.07.05 수정)
 OVERSEAS_BALANCE_ENDPOINT = "/uapi/overseas-stock/v1/trading/inquire-balance"
 OVERSEAS_BALANCE_TR_ID_REAL = "TTTS3012R"
 OVERSEAS_BALANCE_TR_ID_PAPER = "VTTS3012R"
 
+# [해외] 주문 정정/취소 (26.08.08 수정)
+OVERSEAS_REVISE_CANCEL_ENDPOINT = "/uapi/overseas-stock/v1/trading/order-rvsecncl"
+OVERSEAS_REVISE_CANCEL_TR_ID_PAPER = "VTTT1004U"
+OVERSEAS_REVISE_CANCEL_TR_ID_REAL = "TTTT1004U"
 # =========================================================
 # 7. 실행 환경 판단용 헬퍼 함수
 # =========================================================
