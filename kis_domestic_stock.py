@@ -4,6 +4,7 @@
 """
 
 from datetime import datetime
+import time
 import kis_config
 import kis_client
 
@@ -126,6 +127,61 @@ def inquire_unfilled_orders(token: str) -> dict:
         token=token,
         params=params,
     )
+
+#미체결 주문 처리로직
+def handle_unfilled_orders(
+    token: str,
+    max_attempts: int = 3,
+    wait_seconds: int = 10,
+) -> None:
+    """
+    미체결 주문이 남아 있으면 시장가 주문을 다시 보내고, 체결 상태를 반복 확인합니다.
+
+    실제 주문이 반복 전송될 수 있으므로 max_attempts로 재시도 횟수를 제한합니다.
+    """
+    attempt = 0
+
+    while attempt < max_attempts:
+        unfilled = inquire_unfilled_orders(token)
+        rows = unfilled.get("output1", [])
+        if isinstance(rows, dict):
+            rows = [rows]
+
+        unfilled_orders = []
+        for row in rows:
+            stock_code = str(row.get("pdno", "")).strip()
+            if not stock_code:
+                continue
+
+            side_code = str(row.get("sll_buy_dvsn_cd", "")).strip()
+            if side_code == "02":
+                order_type = "buy"
+            elif side_code == "01":
+                order_type = "sell"
+            else:
+                print(f"국내 미체결 주문 매수/매도 구분 실패: {row}")
+                continue
+
+            remaining_quantity = int(str(row.get("nccs_qty", "0")).replace(",", "") or 0)
+            if remaining_quantity > 0:
+                unfilled_orders.append((order_type, stock_code, remaining_quantity))
+
+        if not unfilled_orders:
+            print("국내 미체결 주문 없음")
+            return
+
+        attempt += 1
+        print(f"국내 미체결 주문 감지: 시장가 재주문 {attempt}/{max_attempts}")
+        for order_type, stock_code, remaining_quantity in unfilled_orders:
+            order_stock(
+                token=token,
+                order_type=order_type,
+                stock_code=stock_code,
+                quantity=remaining_quantity,
+            )
+        time.sleep(wait_seconds)
+
+    print("국내 미체결 주문 처리 재시도 한도 도달")
 
 
 def inquire_balance(token: str) -> dict:

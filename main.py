@@ -168,6 +168,8 @@ def main() -> None:
                     stock_code=samsung_code,
                     quantity=samsung_quantity,
                 )
+                #미체결 주문처리 함수 호출
+                domestic.handle_unfilled_orders(token=token)
                 ran.add((today, "domestic_buy"))
 
             # 평일 낮: 삼성전자 시장가 매도
@@ -179,6 +181,8 @@ def main() -> None:
                     stock_code=samsung_code,
                     quantity=samsung_quantity,
                 )
+                #미체결 주문처리 함수 호출
+                domestic.handle_unfilled_orders(token=token)
                 ran.add((today, "domestic_sell"))
 
             # 평일 밤: 애플 시장가 매수
@@ -192,6 +196,8 @@ def main() -> None:
                     ticker=apple_ticker,
                     quantity=apple_quantity,
                 )
+                #미체결 주문처리 함수 호출
+                overseas.handle_unfilled_orders(token=token)
                 ran.add((today, "overseas_buy"))
 
             # 화~토 새벽: 전날 밤 미국장 매수분 애플 시장가 매도
@@ -205,6 +211,8 @@ def main() -> None:
                     ticker=apple_ticker,
                     quantity=apple_quantity,
                 )
+                #미체결 주문처리 함수 호출
+                overseas.handle_unfilled_orders(token=token)
                 ran.add((today, "overseas_sell"))
 
         except Exception as exc:

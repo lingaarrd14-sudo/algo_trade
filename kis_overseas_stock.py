@@ -3,6 +3,7 @@
 역할: 해외주식(미국 주식 중심) 거래와 관련된 조회, 주문, 체결, 잔고 API 기능을 담당하는 모듈
 """
 
+import time
 import kis_config
 import kis_client
 
@@ -138,6 +139,70 @@ def inquire_unfilled_orders(token: str) -> dict:
         token=token,
         params=params,
     )
+
+
+#미체결 주문 처리로직
+def handle_unfilled_orders(
+    token: str,
+    max_attempts: int = 3,
+    wait_seconds: int = 10,
+) -> None:
+    """
+    해외 미체결 주문이 남아 있으면 시장가 주문을 다시 보내고, 체결 상태를 반복 확인합니다.
+
+    실제 주문이 반복 전송될 수 있으므로 max_attempts로 재시도 횟수를 제한합니다.
+    """
+    attempt = 0
+
+    while attempt < max_attempts:
+        unfilled = inquire_unfilled_orders(token)
+        rows = unfilled.get("output1", [])
+        if isinstance(rows, dict):
+            rows = [rows]
+
+        unfilled_orders = []
+        for row in rows:
+            ticker = str(row.get("pdno", "")).strip()
+            if not ticker:
+                continue
+
+            side_code = str(row.get("sll_buy_dvsn_cd", row.get("sll_buy_dvsn", ""))).strip()
+            if side_code == "02":
+                order_type = "buy"
+            elif side_code == "01":
+                order_type = "sell"
+            else:
+                print(f"해외 미체결 주문 매수/매도 구분 실패: {row}")
+                continue
+
+            remaining_quantity_text = str(row.get("nccs_qty", "")).replace(",", "").strip()
+            if remaining_quantity_text:
+                remaining_quantity = int(float(remaining_quantity_text))
+            else:
+                order_quantity = int(float(str(row.get("ft_ord_qty", row.get("ord_qty", "0"))).replace(",", "") or 0))
+                filled_quantity = int(float(str(row.get("ft_ccld_qty", row.get("tot_ccld_qty", "0"))).replace(",", "") or 0))
+                remaining_quantity = max(order_quantity - filled_quantity, 0)
+
+            if remaining_quantity > 0:
+                market_code = str(row.get("ovrs_excg_cd", "NASD")).strip() or "NASD"
+                unfilled_orders.append((order_type, market_code, ticker, remaining_quantity))
+
+        if not unfilled_orders:
+            print("해외 미체결 주문 없음")
+            return
+
+        attempt += 1
+        for order_type, market_code, ticker, remaining_quantity in unfilled_orders:
+            order_stock(
+                token=token,
+                order_type=order_type,
+                market_code=market_code,
+                ticker=ticker,
+                quantity=remaining_quantity,
+            )
+        time.sleep(wait_seconds)
+
+    print(f"해외 미체결 주문 처리 재시도 한도{max_attempts} 도달")
 
 
 def inquire_balance(token: str) -> dict:
