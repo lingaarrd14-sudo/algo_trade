@@ -6,6 +6,7 @@
 """
 
 import sys
+import time
 from kis_auth import issue_access_token
 import kis_domestic_stock as domestic
 import kis_overseas_stock as overseas
@@ -57,10 +58,12 @@ def run_cli() -> None:
                 print(f"❌ 조회 중 오류 발생: {exc}")
 
         elif choice == "2":
-            print("\n⏳ 해외주식 잔고를 조회하고 있습니다...")
+            print("\n⏳ 해외주식 잔고 및 달러 예수금을 조회하고 있습니다...")
             try:
                 data = overseas.inquire_balance(token)
-                result_text = formatter.format_overseas_balance(data)
+                time.sleep(0.3)  # 모의투자 서버 초당 호출 제한 방지
+                present_data = overseas.inquire_present_balance(token)
+                result_text = formatter.format_overseas_balance(data, present_data)
                 print(result_text)
             except Exception as exc:
                 print(f"❌ 조회 중 오류 발생: {exc}")
