@@ -29,13 +29,19 @@ def format_domestic_balance(data: dict) -> str:
     국내주식 잔고 및 예수금 응답 데이터를 보기 좋은 텍스트로 가공합니다.
     """
     # 1. API 응답 에러 체크
-    if not isinstance(data, dict) or data.get("rt_cd") != "0":
-        msg = data.get("msg1", "알 수 없는 오류") if isinstance(data, dict) else "응답 데이터 없음"
+    try:
+        rt_cd = data.get("rt_cd")
+        msg = data.get("msg1", "알 수 없는 오류")
+    except AttributeError:
+        rt_cd = None
+        msg = "응답 데이터 없음"
+
+    if rt_cd != "0":
         return f"❌ [국내 잔고 조회 실패] {msg}"
 
     # 2. 계좌 총 요약 정보 파싱 (output2)
     output2 = data.get("output2", [])
-    summary = output2[0] if isinstance(output2, list) and len(output2) > 0 else {}
+    summary = output2[0] if output2 and not hasattr(output2, "get") else {}
 
     tot_evlu_amt = _safe_int(summary.get("tot_evlu_amt"))  # 총 평가금액
     dnca_tot_amt = _safe_int(summary.get("dnca_tot_amt"))  # 예수금 (D+2)
@@ -57,7 +63,7 @@ def format_domestic_balance(data: dict) -> str:
 
     # 3. 종목별 상세 현황 파싱 (output1)
     output1 = data.get("output1", [])
-    if isinstance(output1, dict):
+    if hasattr(output1, "get"):
         output1 = [output1]
 
     has_stock = False
@@ -91,22 +97,30 @@ def format_overseas_balance(data: dict, present_data: dict = None) -> str:
     """
     해외주식(미국 주식 USD 기준) 잔고 및 외화 평가 응답 데이터를 가공합니다.
     """
-    if not isinstance(data, dict) or data.get("rt_cd") != "0":
-        msg = data.get("msg1", "알 수 없는 오류") if isinstance(data, dict) else "응답 데이터 없음"
+    try:
+        rt_cd = data.get("rt_cd")
+        msg = data.get("msg1", "알 수 없는 오류")
+    except AttributeError:
+        rt_cd = None
+        msg = "응답 데이터 없음"
+
+    if rt_cd != "0":
         return f"❌ [해외 잔고 조회 실패] {msg}"
 
     output2 = data.get("output2", {})
-    if isinstance(output2, list) and len(output2) > 0:
+    if output2 and not hasattr(output2, "get"):
         output2 = output2[0]
 
     tot_evlu_amt = _safe_float(output2.get("tot_evlu_pfls_amt"))  # 외화 총 평가손익 (달러)
 
     # 달러 예수금 파싱 (inquire_present_balance output3 단일 직관 추출)
     frcr_dncl = 0.0
-    if isinstance(present_data, dict) and present_data.get("rt_cd") == "0":
-        output3 = present_data.get("output3", {})
-        if isinstance(output3, dict):
+    try:
+        if present_data.get("rt_cd") == "0":
+            output3 = present_data.get("output3", {})
             frcr_dncl = _safe_float(output3.get("frcr_dncl_amt_2"))
+    except AttributeError:
+        pass
 
     lines = []
     lines.append("=" * 60)
@@ -119,7 +133,7 @@ def format_overseas_balance(data: dict, present_data: dict = None) -> str:
     lines.append("-" * 60)
 
     output1 = data.get("output1", [])
-    if isinstance(output1, dict):
+    if hasattr(output1, "get"):
         output1 = [output1]
 
     has_stock = False
@@ -150,8 +164,14 @@ def format_overseas_balance(data: dict, present_data: dict = None) -> str:
 
 def format_domestic_price(data: dict, stock_code: str) -> str:
     """국내주식 현재가 시세 데이터를 보기 좋은 텍스트로 가공합니다."""
-    if not isinstance(data, dict) or data.get("rt_cd") != "0":
-        msg = data.get("msg1", "알 수 없는 오류") if isinstance(data, dict) else "응답 데이터 없음"
+    try:
+        rt_cd = data.get("rt_cd")
+        msg = data.get("msg1", "알 수 없는 오류")
+    except AttributeError:
+        rt_cd = None
+        msg = "응답 데이터 없음"
+
+    if rt_cd != "0":
         return f"❌ [국내 시세 조회 실패] {msg}"
 
     output = data.get("output", {})
@@ -182,8 +202,14 @@ def format_domestic_price(data: dict, stock_code: str) -> str:
 
 def format_overseas_price(data: dict, ticker: str) -> str:
     """해외주식 현재가 시세 데이터를 보기 좋은 텍스트로 가공합니다."""
-    if not isinstance(data, dict) or data.get("rt_cd") != "0":
-        msg = data.get("msg1", "알 수 없는 오류") if isinstance(data, dict) else "응답 데이터 없음"
+    try:
+        rt_cd = data.get("rt_cd")
+        msg = data.get("msg1", "알 수 없는 오류")
+    except AttributeError:
+        rt_cd = None
+        msg = "응답 데이터 없음"
+
+    if rt_cd != "0":
         return f"❌ [해외 시세 조회 실패] {msg}"
 
     output = data.get("output", {})
@@ -205,12 +231,18 @@ def format_overseas_price(data: dict, ticker: str) -> str:
 
 def format_order_history(data: dict, title: str = "당일 주문/체결 내역") -> str:
     """오늘 발생한 주문 및 체결 내역 데이터를 보기 좋은 텍스트로 가공합니다."""
-    if not isinstance(data, dict) or data.get("rt_cd") != "0":
-        msg = data.get("msg1", "알 수 없는 오류") if isinstance(data, dict) else "응답 데이터 없음"
+    try:
+        rt_cd = data.get("rt_cd")
+        msg = data.get("msg1", "알 수 없는 오류")
+    except AttributeError:
+        rt_cd = None
+        msg = "응답 데이터 없음"
+
+    if rt_cd != "0":
         return f"❌ [{title} 조회 실패] {msg}"
 
     output1 = data.get("output1", [])
-    if isinstance(output1, dict):
+    if hasattr(output1, "get"):
         output1 = [output1]
 
     lines = []
