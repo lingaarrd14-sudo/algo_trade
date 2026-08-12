@@ -69,7 +69,7 @@ def order_stock(token: str, order_type: str, stock_code: str, quantity: int, pri
     )
 
 
-def inquire_order_history(token: str) -> dict:
+def inquire_order_history(token: str, filled: str = "00") -> dict:
     """오늘 발생한 국내주식의 전체 주문 및 체결 내역을 조회합니다."""
     today = today_yyyymmdd()
     tr_id = kis_config.DOMESTIC_ORDER_HISTORY_TR_ID_PAPER if kis_config.is_paper() else kis_config.DOMESTIC_ORDER_HISTORY_TR_ID_REAL
@@ -85,40 +85,10 @@ def inquire_order_history(token: str) -> dict:
         "CCLD_DVSN": "00",            # 00: 전체, 01: 체결, 02: 미체결
         "ORD_GNO_BRNO": "",            # 지점번호 (공백 유지)
         "ODNO": "",                    # 특정 주문번호만 조회 시 입력
-        "INQR_DVSN_3": "00",           # 00: 전체
+        "INQR_DVSN_3": "00",           # 00: 전체, 01: 체결, 02: 미체결
         "INQR_DVSN_1": "",
         "CTX_AREA_FK100": "",          # 연속조회 키 (첫 페이지 요청 시 공백)
         "CTX_AREA_NK100": "",          # 연속조회 키 (첫 페이지 요청 시 공백)
-        "EXCG_ID_DVSN_CD": "KRX",
-    }
-    return kis_client.get(
-        endpoint=kis_config.DOMESTIC_ORDER_HISTORY_ENDPOINT,
-        tr_id=tr_id,
-        token=token,
-        params=params,
-    )
-
-
-def inquire_unfilled_orders(token: str) -> dict:
-    """오늘 아직 체결되지 않고 대수 중인 국내주식 미체결 주문 내역만 조회합니다."""
-    today = today_yyyymmdd()
-    tr_id = kis_config.DOMESTIC_ORDER_HISTORY_TR_ID_PAPER if kis_config.is_paper() else kis_config.DOMESTIC_ORDER_HISTORY_TR_ID_REAL
-
-    params = {
-        "CANO": kis_config.ACCOUNT_NO,
-        "ACNT_PRDT_CD": kis_config.ACCOUNT_PRODUCT_CODE,
-        "INQR_STRT_DT": today,
-        "INQR_END_DT": today,
-        "SLL_BUY_DVSN_CD": "00",
-        "INQR_DVSN": "00",
-        "PDNO": "",
-        "CCLD_DVSN": "02",            # ★ 02로 설정하여 '미체결' 상태만 필터링합니다.
-        "ORD_GNO_BRNO": "",
-        "ODNO": "",
-        "INQR_DVSN_3": "00",
-        "INQR_DVSN_1": "",
-        "CTX_AREA_FK100": "",
-        "CTX_AREA_NK100": "",
         "EXCG_ID_DVSN_CD": "KRX",
     }
     return kis_client.get(
@@ -135,7 +105,7 @@ def handle_unfilled_orders(token: str) -> None:
     """
 
     # 1. 미체결 주문 조회
-    response = inquire_unfilled_orders(token)
+    response = inquire_order_history(token, "02")
 
     if str(response.get("rt_cd", "")) != "0":
         print(

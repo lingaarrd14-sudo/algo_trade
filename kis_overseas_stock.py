@@ -67,11 +67,10 @@ def order_stock(token: str, order_type: str, market_code: str, ticker: str, quan
         body=body,
     )
 
-# ↓ 26.07.05 추가: 오늘날짜 생성 추가, 필수 날짜 파라미터 입력
-def inquire_order_history(token: str) -> dict:
+def inquire_order_history(token: str, filled: str = "00") -> dict:
     """
     오늘 발생한 해외주식의 전체 주문 내역 및 체결 상태를 상세히 조회합니다.
-    (API: 해외주식 주문체결내역 조회 - TTTS3035R / VTTS3035R)
+    실전 전환 시 미체결 수정 필요
     """
     # 현재 환경(모의투자/실전투자)에 맞추어 적절한 거래 ID(TR_ID)를 자동으로 선택합니다.
     tr_id = kis_config.OVERSEAS_ORDER_HISTORY_TR_ID_PAPER if kis_config.is_paper() else kis_config.OVERSEAS_ORDER_HISTORY_TR_ID_REAL
@@ -89,7 +88,7 @@ def inquire_order_history(token: str) -> dict:
         "ORD_STRT_DT": today,                          # 조회 시작일자 (YYYYMMDD 형식, 현지시각 기준)
         "ORD_END_DT": today,                           # 조회 종료일자 (YYYYMMDD 형식, 현지시각 기준)
         "SLL_BUY_DVSN": "00",                          # 매도매수구분 (00: 전체, 01: 매도, 02: 매수)
-        "CCLD_NCCS_DVSN": "00",                        # 체결미체결구분 (00: 전체, 01: 체결, 02: 미체결) - 모의투자는 "00"만 가능
+        "CCLD_NCCS_DVSN": filled,                        # 체결미체결구분 (00: 전체, 01: 체결, 02: 미체결) - 모의투자는 "00"만 가능
         "OVRS_EXCG_CD": "NASD",                        # 해외거래소코드 (미국 시장 전체를 통합 조회할 때 주로 'NASD' 사용)
         
         # 3. 정렬 및 특정 주문 지정 정보
@@ -110,43 +109,13 @@ def inquire_order_history(token: str) -> dict:
         params=params,
     )
 
-
-def inquire_unfilled_orders(token: str) -> dict:
-    """오늘 보낸 해외 주문 중 아직 완전히 체결되지 않고 남아있는 미체결 계약만 조회합니다."""
-    tr_id = kis_config.OVERSEAS_ORDER_HISTORY_TR_ID_PAPER if kis_config.is_paper() else kis_config.OVERSEAS_ORDER_HISTORY_TR_ID_REAL
-    today = datetime.now().strftime("%Y%m%d")
-
-    params = {
-        "CANO": kis_config.ACCOUNT_NO,
-        "ACNT_PRDT_CD": kis_config.ACCOUNT_PRODUCT_CODE,
-        "PDNO": "",
-        "ORD_STRT_DT": today,
-        "ORD_END_DT": today,
-        "SLL_BUY_DVSN": "00",
-        # 모의투자는 "00"(전체)만 지원. 실전투자일 때만 "02"(미체결)로 필터링
-        "CCLD_NCCS_DVSN": "00" if kis_config.is_paper() else "02",
-        "OVRS_EXCG_CD": "NASD",
-        "SORT_SQN": "DS",
-        "ORD_DT": "",
-        "ORD_GNO_BRNO": "",
-        "ODNO": "",
-        "CTX_AREA_NK200": "",
-        "CTX_AREA_FK200": "",
-    }
-    return kis_client.get(
-        endpoint=kis_config.OVERSEAS_ORDER_HISTORY_ENDPOINT,
-        tr_id=tr_id,
-        token=token,
-        params=params,
-    )
-
 def handle_unfilled_orders(token: str) -> None:
     """
     해외주식 미체결 주문을 조회하고,
     1. 기존 미체결 주문 취소
     2. 미체결 잔량만큼 신규 시장가 주문
     """
-    response = inquire_unfilled_orders(token)
+    response = inquire_order_history(token)
 
     if str(response.get("rt_cd", "")) != "0":
         print(

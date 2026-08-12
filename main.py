@@ -62,7 +62,7 @@ def execute_domestic_order(token: str, order_type: str, stock_code: str, quantit
     print_result("국내 주문/체결 조회", order_history)
     time.sleep(1.0)
 
-    unfilled = domestic.inquire_unfilled_orders(token)
+    unfilled = domestic.inquire_order_history(token, "02")
     print_result("국내 미체결 조회", unfilled)
     time.sleep(1.0)
 
@@ -111,7 +111,7 @@ def execute_overseas_order(
     print_result("해외 주문/체결 조회", order_history)
     time.sleep(1.0)
 
-    unfilled = overseas.inquire_unfilled_orders(token)
+    unfilled = overseas.inquire_order_history(token, "02")
     print_result("해외 미체결 조회", unfilled)
     time.sleep(1.0)
 
