@@ -87,9 +87,9 @@ def format_domestic_balance(data: dict) -> str:
     return "\n".join(lines)
 
 
-def format_overseas_balance(data: dict) -> str:
+def format_overseas_balance(data: dict, present_data: dict = None) -> str:
     """
-    해외주식 잔고 및 외화 평가 응답 데이터를 보기 좋은 텍스트로 가공합니다.
+    해외주식(미국 주식 USD 기준) 잔고 및 외화 평가 응답 데이터를 가공합니다.
     """
     if not isinstance(data, dict) or data.get("rt_cd") != "0":
         msg = data.get("msg1", "알 수 없는 오류") if isinstance(data, dict) else "응답 데이터 없음"
@@ -99,8 +99,14 @@ def format_overseas_balance(data: dict) -> str:
     if isinstance(output2, list) and len(output2) > 0:
         output2 = output2[0]
 
-    tot_evlu_amt = _safe_float(output2.get("tot_evlu_pfls_amt")) # 외화 총 평가손익 (달러)
-    frcr_dncl = _safe_float(output2.get("frcr_dncl_amt_2"))      # 외화 예수금 (달러)
+    tot_evlu_amt = _safe_float(output2.get("tot_evlu_pfls_amt"))  # 외화 총 평가손익 (달러)
+
+    # 달러 예수금 파싱 (inquire_present_balance output3 단일 직관 추출)
+    frcr_dncl = 0.0
+    if isinstance(present_data, dict) and present_data.get("rt_cd") == "0":
+        output3 = present_data.get("output3", {})
+        if isinstance(output3, dict):
+            frcr_dncl = _safe_float(output3.get("frcr_dncl_amt_2"))
 
     lines = []
     lines.append("=" * 60)
@@ -118,7 +124,7 @@ def format_overseas_balance(data: dict) -> str:
 
     has_stock = False
     for item in output1:
-        qty = _safe_int(item.get("ovrs_ccls_qty", item.get("ccls_qty", 0)))
+        qty = _safe_int(item.get("ovrs_cblc_qty", item.get("ccls_qty", 0)))
         if qty <= 0:
             continue
         
