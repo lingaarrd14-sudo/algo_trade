@@ -96,6 +96,10 @@ OVERSEAS_BALANCE_TR_ID_PAPER = "VTTS3012R"
 OVERSEAS_REVISE_CANCEL_ENDPOINT = "/uapi/overseas-stock/v1/trading/order-rvsecncl"
 OVERSEAS_REVISE_CANCEL_TR_ID_PAPER = "VTTT1004U"
 OVERSEAS_REVISE_CANCEL_TR_ID_REAL = "TTTT1004U"
+
+# [해외] 주문 가능 금액 조회 (모의투자에만 필요)
+OVERSEAS_POSITION_AMOUNT_ENDPOINT = "/uapi/overseas-stock/v1/trading/inquire-psamount"
+OVERSEAS_POSITION_AMOUNT_TR_ID_PAPER = "VTTS3007R"
 # =========================================================
 # 7. 실행 환경 판단용 헬퍼 함수
 # =========================================================

@@ -3,7 +3,6 @@
 역할: 해외주식(미국 주식 중심) 거래와 관련된 조회, 주문, 체결, 잔고 API 기능을 담당하는 모듈
 """
 
-import time
 import kis_config
 import kis_client
 
@@ -115,7 +114,7 @@ def handle_unfilled_orders(token: str) -> None:
     1. 기존 미체결 주문 취소
     2. 미체결 잔량만큼 신규 시장가 주문
     """
-    response = inquire_order_history(token)
+    response = inquire_order_history(token, "02")
 
     if str(response.get("rt_cd", "")) != "0":
         print(
@@ -274,6 +273,24 @@ def inquire_balance(token: str) -> dict:
     }
     return kis_client.get(
         endpoint=kis_config.OVERSEAS_BALANCE_ENDPOINT,
+        tr_id=tr_id,
+        token=token,
+        params=params,
+    )
+
+def inquire_position_amount(token: str) -> dict:
+    """모의투자용 해외주식 예수금 조회 함수, 매수가능금액조회 api를 우회"""
+    tr_id = kis_config.OVERSEAS_POSITION_AMOUNT_TR_ID_PAPER
+
+    params = {
+        "CANO": kis_config.ACCOUNT_NO,
+        "ACNT_PRDT_CD": kis_config.ACCOUNT_PRODUCT_CODE,
+        "OVRS_EXCG_CD": "NASD",        # 미국 통합 조회를 위해 사용
+        "OVRS_ORD_UNPR": "0",           # 거래 통화 기준 코드 (미국 주식은 USD)
+        "ITEM_CD": "AAPL",          # 조회용 임의 종목코드 (실제 잔고와 무관)
+    }
+    return kis_client.get(
+        endpoint=kis_config.OVERSEAS_POSITION_AMOUNT_ENDPOINT,
         tr_id=tr_id,
         token=token,
         params=params,

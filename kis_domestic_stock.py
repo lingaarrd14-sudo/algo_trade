@@ -4,7 +4,6 @@
 """
 
 from datetime import datetime
-import time
 import kis_config
 import kis_client
 
@@ -82,7 +81,7 @@ def inquire_order_history(token: str, filled: str = "00") -> dict:
         "SLL_BUY_DVSN_CD": "00",       # 00: 전체, 01: 매도, 02: 매수
         "INQR_DVSN": "00",            # 00: 전체역사 조회
         "PDNO": "",                    # 특정 종목만 지정하려면 코드 입력, 비워두면 계좌 전체
-        "CCLD_DVSN": "00",            # 00: 전체, 01: 체결, 02: 미체결
+        "CCLD_DVSN": filled,          # 00: 전체, 01: 체결, 02: 미체결
         "ORD_GNO_BRNO": "",            # 지점번호 (공백 유지)
         "ODNO": "",                    # 특정 주문번호만 조회 시 입력
         "INQR_DVSN_3": "00",           # 00: 전체, 01: 체결, 02: 미체결

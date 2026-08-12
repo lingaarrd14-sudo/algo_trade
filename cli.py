@@ -6,7 +6,6 @@
 """
 
 import sys
-import time
 from kis_auth import issue_access_token
 import kis_domestic_stock as domestic
 import kis_overseas_stock as overseas
@@ -60,7 +59,12 @@ def run_cli() -> None:
         elif choice == "2":
             print("\n⏳ 해외주식 잔고 및 달러 예수금을 조회하고 있습니다...")
             try:
-                print("작성필요")
+                balance_data = overseas.inquire_balance(token)
+                position_data = overseas.inquire_position_amount(token)
+                data = {"balance": balance_data,
+                        "position_amount": position_data}
+                result_text = formatter.format_overseas_balance(data)
+                print(result_text)
             except Exception as exc:
                 print(f"❌ 조회 중 오류 발생: {exc}")
 
