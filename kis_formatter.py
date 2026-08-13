@@ -98,29 +98,29 @@ def format_overseas_balance(data: dict, present_data: dict = None) -> str:
     해외주식(미국 주식 USD 기준) 잔고 및 외화 평가 응답 데이터를 가공합니다.
     """
     try:
-        rt_cd = data.get("rt_cd")
-        msg = data.get("msg1", "알 수 없는 오류")
+        rt_cd1 = data["balance"].get("rt_cd")
+        msg1 = data["balance"].get("msg1", "알 수 없는 오류")
+        rt_cd2 = data["position_amount"].get("rt_cd")
+        msg2 = data["position_amount"].get("msg1", "알 수 없는 오류")
     except AttributeError:
-        rt_cd = None
-        msg = "응답 데이터 없음"
+        rt_cd1 = None
+        msg1 = "응답 데이터 없음"
+        rt_cd2 = None
+        msg2 = "응답 데이터 없음"
 
-    if rt_cd != "0":
-        return f"❌ [해외 잔고 조회 실패] {msg}"
+    if rt_cd1 != "0" or rt_cd2 != "0":
+        return f"❌ [해외 잔고 조회 실패] {msg1 if rt_cd1 != '0' else msg2}"
 
-    output2 = data.get("output2", {})
-    if output2 and not hasattr(output2, "get"):
-        output2 = output2[0]
+    output1 = data["balance"].get("output2", {})
+    if output1 and not hasattr(output1, "get"):
+        output1 = output1[0]
 
-    tot_evlu_amt = _safe_float(output2.get("tot_evlu_pfls_amt"))  # 외화 총 평가손익 (달러)
+    tot_evlu_amt = _safe_float(output1.get("tot_evlu_pfls_amt"))  # 외화 총 평가손익 (달러)
 
     # 달러 예수금 파싱 (inquire_present_balance output3 단일 직관 추출)
     frcr_dncl = 0.0
-    try:
-        if present_data.get("rt_cd") == "0":
-            output3 = present_data.get("output3", {})
-            frcr_dncl = _safe_float(output3.get("frcr_dncl_amt_2"))
-    except AttributeError:
-        pass
+    output2 = present_data["position_amount"].get("output", {})
+    frcr_dncl = _safe_float(output2.get("ovrs_ord_psbl_amt")) #주문가능금액
 
     lines = []
     lines.append("=" * 60)
