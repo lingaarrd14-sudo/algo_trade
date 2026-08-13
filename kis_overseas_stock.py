@@ -286,7 +286,7 @@ def inquire_position_amount(token: str) -> dict:
         "CANO": kis_config.ACCOUNT_NO,
         "ACNT_PRDT_CD": kis_config.ACCOUNT_PRODUCT_CODE,
         "OVRS_EXCG_CD": "NASD",        # 미국 통합 조회를 위해 사용
-        "OVRS_ORD_UNPR": "0",           # 거래 통화 기준 코드 (미국 주식은 USD)
+        "OVRS_ORD_UNPR": "30.0",           # 거래 통화 기준 코드 (미국 주식은 USD)
         "ITEM_CD": "AAPL",          # 조회용 임의 종목코드 (실제 잔고와 무관)
     }
     return kis_client.get(

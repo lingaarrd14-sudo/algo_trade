@@ -93,7 +93,7 @@ def format_domestic_balance(data: dict) -> str:
     return "\n".join(lines)
 
 
-def format_overseas_balance(data: dict, present_data: dict = None) -> str:
+def format_overseas_balance(data: dict) -> str:
     """
     해외주식(미국 주식 USD 기준) 잔고 및 외화 평가 응답 데이터를 가공합니다.
     """
@@ -119,8 +119,10 @@ def format_overseas_balance(data: dict, present_data: dict = None) -> str:
 
     # 달러 예수금 파싱 (inquire_present_balance output3 단일 직관 추출)
     frcr_dncl = 0.0
-    output2 = present_data["position_amount"].get("output", {})
-    frcr_dncl = _safe_float(output2.get("ovrs_ord_psbl_amt")) #주문가능금액
+    output2 = data["position_amount"].get("output", {})
+    frcr_dncl = _safe_float(
+    output2.get("frcr_ord_psbl_amt1")
+)
 
     lines = []
     lines.append("=" * 60)
@@ -132,7 +134,7 @@ def format_overseas_balance(data: dict, present_data: dict = None) -> str:
     lines.append(f"{'티커':<10} {'보유수량':<8} {'평균단가($)':<12} {'현재가($)':<12} {'수익률'}")
     lines.append("-" * 60)
 
-    output1 = data.get("output1", [])
+    output1 = data["balance"].get("output1", [])
     if hasattr(output1, "get"):
         output1 = [output1]
 
