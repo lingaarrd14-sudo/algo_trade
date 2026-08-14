@@ -1,5 +1,6 @@
 import requests
-import kis_config
+
+from . import kis_config
 
 # =========================================================
 # 공통 HTTP 요청 처리

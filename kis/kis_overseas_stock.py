@@ -3,8 +3,8 @@
 역할: 해외주식(미국 주식 중심) 거래와 관련된 조회, 주문, 체결, 잔고 API 기능을 담당하는 모듈
 """
 
-import kis_config
-import kis_client
+from . import kis_client
+from . import kis_config
 
 # ↓ 26.07.05 추가: 해외 주문/체결 조회 함수가 오늘 날짜를 정상적으로 보내도록 날짜 모듈 추가
 from datetime import datetime
@@ -66,11 +66,10 @@ def order_stock(token: str, order_type: str, market_code: str, ticker: str, quan
         body=body,
     )
 
-# ↓ 26.07.05 추가: 오늘날짜 생성 추가, 필수 날짜 파라미터 입력
-def inquire_order_history(token: str) -> dict:
+def inquire_order_history(token: str, filled: str = "00") -> dict:
     """
     오늘 발생한 해외주식의 전체 주문 내역 및 체결 상태를 상세히 조회합니다.
-    (API: 해외주식 주문체결내역 조회 - TTTS3035R / VTTS3035R)
+    실전 전환 시 미체결 수정 필요
     """
     # 현재 환경(모의투자/실전투자)에 맞추어 적절한 거래 ID(TR_ID)를 자동으로 선택합니다.
     tr_id = kis_config.OVERSEAS_ORDER_HISTORY_TR_ID_PAPER if kis_config.is_paper() else kis_config.OVERSEAS_ORDER_HISTORY_TR_ID_REAL
@@ -88,7 +87,7 @@ def inquire_order_history(token: str) -> dict:
         "ORD_STRT_DT": today,                          # 조회 시작일자 (YYYYMMDD 형식, 현지시각 기준)
         "ORD_END_DT": today,                           # 조회 종료일자 (YYYYMMDD 형식, 현지시각 기준)
         "SLL_BUY_DVSN": "00",                          # 매도매수구분 (00: 전체, 01: 매도, 02: 매수)
-        "CCLD_NCCS_DVSN": "00",                        # 체결미체결구분 (00: 전체, 01: 체결, 02: 미체결) - 모의투자는 "00"만 가능
+        "CCLD_NCCS_DVSN": filled,                        # 체결미체결구분 (00: 전체, 01: 체결, 02: 미체결) - 모의투자는 "00"만 가능
         "OVRS_EXCG_CD": "NASD",                        # 해외거래소코드 (미국 시장 전체를 통합 조회할 때 주로 'NASD' 사용)
         
         # 3. 정렬 및 특정 주문 지정 정보
@@ -109,35 +108,155 @@ def inquire_order_history(token: str) -> dict:
         params=params,
     )
 
+def handle_unfilled_orders(token: str) -> None:
+    """
+    해외주식 미체결 주문을 조회하고,
+    1. 기존 미체결 주문 취소
+    2. 미체결 잔량만큼 신규 시장가 주문
+    """
+    response = inquire_order_history(token, "02")
 
-def inquire_unfilled_orders(token: str) -> dict:
-    """오늘 보낸 해외 주문 중 아직 완전히 체결되지 않고 남아있는 미체결 계약만 조회합니다."""
-    tr_id = kis_config.OVERSEAS_ORDER_HISTORY_TR_ID_PAPER if kis_config.is_paper() else kis_config.OVERSEAS_ORDER_HISTORY_TR_ID_REAL
-    today = datetime.now().strftime("%Y%m%d")
+    if str(response.get("rt_cd", "")) != "0":
+        print(
+            "[해외 미체결 조회 실패]",
+            response.get("msg_cd", ""),
+            response.get("msg1", ""),
+        )
+        return
 
-    params = {
-        "CANO": kis_config.ACCOUNT_NO,
-        "ACNT_PRDT_CD": kis_config.ACCOUNT_PRODUCT_CODE,
-        "PDNO": "",
-        "ORD_STRT_DT": today,
-        "ORD_END_DT": today,
-        "SLL_BUY_DVSN": "00",
-        # 모의투자는 "00"(전체)만 지원. 실전투자일 때만 "02"(미체결)로 필터링
-        "CCLD_NCCS_DVSN": "00" if kis_config.is_paper() else "02",
-        "OVRS_EXCG_CD": "NASD",
-        "SORT_SQN": "DS",
-        "ORD_DT": "",
-        "ORD_GNO_BRNO": "",
-        "ODNO": "",
-        "CTX_AREA_NK200": "",
-        "CTX_AREA_FK200": "",
-    }
-    return kis_client.get(
-        endpoint=kis_config.OVERSEAS_ORDER_HISTORY_ENDPOINT,
-        tr_id=tr_id,
-        token=token,
-        params=params,
-    )
+    rows = response.get("output1", [])
+    if isinstance(rows, dict):
+        rows = [rows]
+
+    for row in rows:
+        ticker = str(row.get("pdno", "")).strip()
+        order_no = str(row.get("odno", "")).strip()
+
+        if not ticker or not order_no:
+            continue
+
+        # 미체결수량
+        qty_text = str(
+            row.get("nccs_qty", "")
+        ).replace(",", "").strip()
+
+        if qty_text:
+            try:
+                remaining_qty = int(float(qty_text))
+            except ValueError:
+                continue
+        else:
+            try:
+                order_qty = int(float(
+                    str(
+                        row.get(
+                            "ft_ord_qty",
+                            row.get("ord_qty", "0"),
+                        )
+                    ).replace(",", "") or 0
+                ))
+
+                filled_qty = int(float(
+                    str(
+                        row.get(
+                            "ft_ccld_qty",
+                            row.get("tot_ccld_qty", "0"),
+                        )
+                    ).replace(",", "") or 0
+                ))
+
+                remaining_qty = max(order_qty - filled_qty, 0)
+
+            except ValueError:
+                continue
+
+        if remaining_qty <= 0:
+            continue
+
+        market_code = str(
+            row.get("ovrs_excg_cd", "NASD")
+        ).strip() or "NASD"
+
+        side_code = str(
+            row.get(
+                "sll_buy_dvsn_cd",
+                row.get("sll_buy_dvsn", ""),
+            )
+        ).strip()
+
+        if side_code == "02":
+            order_type = "buy"
+        elif side_code == "01":
+            order_type = "sell"
+        else:
+            print(f"[매수/매도 구분 실패] {ticker}")
+            continue
+
+        # 미국 모의투자 기준
+        tr_id = (
+            kis_config.OVERSEAS_REVISE_CANCEL_TR_ID_PAPER
+            if kis_config.is_paper()
+            else kis_config.OVERSEAS_REVISE_CANCEL_TR_ID_REAL
+        )
+
+        # 1. 기존 주문 취소
+        cancel_body = {
+            "CANO": kis_config.ACCOUNT_NO,
+            "ACNT_PRDT_CD": kis_config.ACCOUNT_PRODUCT_CODE,
+            "OVRS_EXCG_CD": market_code,
+            "PDNO": ticker,
+            "ORGN_ODNO": order_no,
+
+            "RVSE_CNCL_DVSN_CD": "02",  # 취소
+            "ORD_QTY": str(remaining_qty),
+            "OVRS_ORD_UNPR": "0",
+
+            "MGCO_APTM_ODNO": "",
+            "ORD_SVR_DVSN_CD": "0",
+        }
+
+        cancel_result = kis_client.post_order(
+            endpoint=kis_config.OVERSEAS_REVISE_CANCEL_ENDPOINT,
+            tr_id=tr_id,
+            token=token,
+            body=cancel_body,
+        )
+
+        if str(cancel_result.get("rt_cd", "")) != "0":
+            print(
+                f"[취소 실패] {ticker} / "
+                f"{order_no} / "
+                f"{cancel_result.get('msg_cd', '')} / "
+                f"{cancel_result.get('msg1', '')}"
+            )
+            continue
+
+        print(
+            f"[취소 성공] {ticker} / "
+            f"{remaining_qty}주"
+        )
+
+        # 2. 취소 성공한 경우에만 신규 시장가 주문
+        order_result = order_stock(
+            token=token,
+            order_type=order_type,
+            market_code=market_code,
+            ticker=ticker,
+            quantity=remaining_qty,
+        )
+
+        if str(order_result.get("rt_cd", "")) == "0":
+            print(
+                f"[시장가 재주문 성공] "
+                f"{ticker} / {remaining_qty}주"
+            )
+        else:
+            print(
+                f"[시장가 재주문 실패] "
+                f"{ticker} / {remaining_qty}주 / "
+                f"{order_result.get('msg_cd', '')} / "
+                f"{order_result.get('msg1', '')}"
+            )
 
 
 def inquire_balance(token: str) -> dict:
@@ -154,6 +273,24 @@ def inquire_balance(token: str) -> dict:
     }
     return kis_client.get(
         endpoint=kis_config.OVERSEAS_BALANCE_ENDPOINT,
+        tr_id=tr_id,
+        token=token,
+        params=params,
+    )
+
+def inquire_position_amount(token: str) -> dict:
+    """모의투자용 해외주식 예수금 조회 함수, 매수가능금액조회 api를 우회"""
+    tr_id = kis_config.OVERSEAS_POSITION_AMOUNT_TR_ID_PAPER
+
+    params = {
+        "CANO": kis_config.ACCOUNT_NO,
+        "ACNT_PRDT_CD": kis_config.ACCOUNT_PRODUCT_CODE,
+        "OVRS_EXCG_CD": "NASD",        # 미국 통합 조회를 위해 사용
+        "OVRS_ORD_UNPR": "30.0",           # 거래 통화 기준 코드 (미국 주식은 USD)
+        "ITEM_CD": "AAPL",          # 조회용 임의 종목코드 (실제 잔고와 무관)
+    }
+    return kis_client.get(
+        endpoint=kis_config.OVERSEAS_POSITION_AMOUNT_ENDPOINT,
         tr_id=tr_id,
         token=token,
         params=params,

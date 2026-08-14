@@ -1,7 +1,8 @@
 import json
 import time
 import requests
-import kis_config
+
+from . import kis_config
 
 # =========================================================
 # Access Token 캐시 관리

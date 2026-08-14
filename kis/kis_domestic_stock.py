@@ -4,8 +4,9 @@
 """
 
 from datetime import datetime
-import kis_config
-import kis_client
+
+from . import kis_client
+from . import kis_config
 
 def today_yyyymmdd() -> str:
     """오늘 날짜를 KIS API 규격인 YYYYMMDD 형태의 문자열로 반환합니다."""
@@ -68,7 +69,7 @@ def order_stock(token: str, order_type: str, stock_code: str, quantity: int, pri
     )
 
 
-def inquire_order_history(token: str) -> dict:
+def inquire_order_history(token: str, filled: str = "00") -> dict:
     """오늘 발생한 국내주식의 전체 주문 및 체결 내역을 조회합니다."""
     today = today_yyyymmdd()
     tr_id = kis_config.DOMESTIC_ORDER_HISTORY_TR_ID_PAPER if kis_config.is_paper() else kis_config.DOMESTIC_ORDER_HISTORY_TR_ID_REAL
@@ -81,10 +82,10 @@ def inquire_order_history(token: str) -> dict:
         "SLL_BUY_DVSN_CD": "00",       # 00: 전체, 01: 매도, 02: 매수
         "INQR_DVSN": "00",            # 00: 전체역사 조회
         "PDNO": "",                    # 특정 종목만 지정하려면 코드 입력, 비워두면 계좌 전체
-        "CCLD_DVSN": "00",            # 00: 전체, 01: 체결, 02: 미체결
+        "CCLD_DVSN": filled,          # 00: 전체, 01: 체결, 02: 미체결
         "ORD_GNO_BRNO": "",            # 지점번호 (공백 유지)
         "ODNO": "",                    # 특정 주문번호만 조회 시 입력
-        "INQR_DVSN_3": "00",           # 00: 전체
+        "INQR_DVSN_3": "00",           # 00: 전체, 01: 체결, 02: 미체결
         "INQR_DVSN_1": "",
         "CTX_AREA_FK100": "",          # 연속조회 키 (첫 페이지 요청 시 공백)
         "CTX_AREA_NK100": "",          # 연속조회 키 (첫 페이지 요청 시 공백)
@@ -97,36 +98,96 @@ def inquire_order_history(token: str) -> dict:
         params=params,
     )
 
+def handle_unfilled_orders(token: str) -> None:
+    """
+    국내주식 미체결 주문을 조회하고,
+    각 주문의 미체결 잔량 전체를 시장가로 정정합니다.
+    """
 
-def inquire_unfilled_orders(token: str) -> dict:
-    """오늘 아직 체결되지 않고 대수 중인 국내주식 미체결 주문 내역만 조회합니다."""
-    today = today_yyyymmdd()
-    tr_id = kis_config.DOMESTIC_ORDER_HISTORY_TR_ID_PAPER if kis_config.is_paper() else kis_config.DOMESTIC_ORDER_HISTORY_TR_ID_REAL
+    # 1. 미체결 주문 조회
+    response = inquire_order_history(token, "02")
 
-    params = {
-        "CANO": kis_config.ACCOUNT_NO,
-        "ACNT_PRDT_CD": kis_config.ACCOUNT_PRODUCT_CODE,
-        "INQR_STRT_DT": today,
-        "INQR_END_DT": today,
-        "SLL_BUY_DVSN_CD": "00",
-        "INQR_DVSN": "00",
-        "PDNO": "",
-        "CCLD_DVSN": "02",            # ★ 02로 설정하여 '미체결' 상태만 필터링합니다.
-        "ORD_GNO_BRNO": "",
-        "ODNO": "",
-        "INQR_DVSN_3": "00",
-        "INQR_DVSN_1": "",
-        "CTX_AREA_FK100": "",
-        "CTX_AREA_NK100": "",
-        "EXCG_ID_DVSN_CD": "KRX",
-    }
-    return kis_client.get(
-        endpoint=kis_config.DOMESTIC_ORDER_HISTORY_ENDPOINT,
-        tr_id=tr_id,
-        token=token,
-        params=params,
-    )
+    if str(response.get("rt_cd", "")) != "0":
+        print(
+            "[국내 미체결 조회 실패]",
+            response.get("msg_cd", ""),
+            response.get("msg1", ""),
+        )
+        return
 
+    rows = response.get("output1", [])
+
+    if isinstance(rows, dict):
+        rows = [rows]
+
+    # 2. 미체결 주문별 시장가 정정
+    for row in rows:
+        order_no = str(row.get("odno", "")).strip()
+
+        if not order_no:
+            continue
+
+        qty_text = str(
+            row.get("nccs_qty", "0")
+        ).replace(",", "").strip()
+
+        try:
+            unfilled_qty = int(float(qty_text or "0"))
+        except (ValueError, TypeError):
+            continue
+
+        if unfilled_qty <= 0:
+            continue
+
+        stock_code = str(row.get("pdno", "")).strip()
+
+        krx_order_org_no = str(
+            row.get("krx_fwdg_ord_orgno", "")
+        ).strip()
+
+        # 모의/실전 TR_ID 선택
+        tr_id = (
+            kis_config.DOMESTIC_REVISE_CANCEL_TR_ID_PAPER
+            if kis_config.is_paper()
+            else kis_config.DOMESTIC_REVISE_CANCEL_TR_ID_REAL
+        )
+
+        # 기존 주문의 미체결 잔량 전체를 시장가로 정정
+        body = {
+            "CANO": kis_config.ACCOUNT_NO,
+            "ACNT_PRDT_CD": kis_config.ACCOUNT_PRODUCT_CODE,
+            "KRX_FWDG_ORD_ORGNO": krx_order_org_no,
+            "ORGN_ODNO": order_no,
+
+            "ORD_DVSN": "01",             # 시장가
+            "RVSE_CNCL_DVSN_CD": "01",    # 정정
+            "ORD_QTY": "0",               # 잔량 전체
+            "ORD_UNPR": "0",              # 시장가
+            "QTY_ALL_ORD_YN": "Y",        # 잔량 전체 정정
+
+            "EXCG_ID_DVSN_CD": "KRX",
+        }
+
+        result = kis_client.post_order(
+            endpoint=kis_config.DOMESTIC_REVISE_CANCEL_ENDPOINT,
+            tr_id=tr_id,
+            token=token,
+            body=body,
+        )
+
+        if str(result.get("rt_cd", "")) == "0":
+            print(
+                f"[시장가 정정 성공] "
+                f"{stock_code} / 주문번호 {order_no} / "
+                f"미체결 {unfilled_qty}주"
+            )
+        else:
+            print(
+                f"[시장가 정정 실패] "
+                f"{stock_code} / 주문번호 {order_no} / "
+                f"{result.get('msg_cd', '')} / "
+                f"{result.get('msg1', '')}"
+            )
 
 def inquire_balance(token: str) -> dict:
     """국내주식 계좌의 예수금 및 현재 보유 종목 현황(수익률, 평가금액 등)을 조회합니다."""
