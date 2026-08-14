@@ -3,8 +3,8 @@
 역할: 해외주식(미국 주식 중심) 거래와 관련된 조회, 주문, 체결, 잔고 API 기능을 담당하는 모듈
 """
 
-import kis_config
-import kis_client
+from . import kis_client
+from . import kis_config
 
 # ↓ 26.07.05 추가: 해외 주문/체결 조회 함수가 오늘 날짜를 정상적으로 보내도록 날짜 모듈 추가
 from datetime import datetime

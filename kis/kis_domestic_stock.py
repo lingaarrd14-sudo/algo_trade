@@ -4,8 +4,9 @@
 """
 
 from datetime import datetime
-import kis_config
-import kis_client
+
+from . import kis_client
+from . import kis_config
 
 def today_yyyymmdd() -> str:
     """오늘 날짜를 KIS API 규격인 YYYYMMDD 형태의 문자열로 반환합니다."""

@@ -6,10 +6,12 @@
 """
 
 import sys
-from kis_auth import issue_access_token
-import kis_domestic_stock as domestic
-import kis_overseas_stock as overseas
-import kis_formatter as formatter
+sys.path.append("..")
+
+from kis.kis_auth import issue_access_token
+import kis.kis_domestic_stock as domestic
+import kis.kis_overseas_stock as overseas
+import interface.kis_formatter as formatter
 
 
 def display_menu() -> None:
