@@ -1,288 +1,112 @@
 """
-JSONL logger for trading events.
+주문/토큰 발급 로그를 JSONL 파일로 남기는 간단한 모듈.
 
-This module intentionally keeps broker secrets out of logs. Access tokens,
-app secrets, authorization headers, and account-like values are redacted or
-masked before being written.
+로그 파일은 interface 폴더에 바로 저장됩니다.
+예: interface/orders_2026-08-15.jsonl
 """
-
-from __future__ import annotations
 
 import hashlib
 import json
+import os
 from datetime import datetime
-from pathlib import Path
-from typing import Any
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_LOG_DIR = PROJECT_ROOT / "logs"
-
-SENSITIVE_KEYWORDS = (
-    "access_token",
-    "refresh_token",
-    "token",
-    "authorization",
-    "appsecret",
-    "app_secret",
-    "secret",
-    "password",
-    "passwd",
-    "pwd",
-)
-
-ACCOUNT_KEYWORDS = (
-    "cano",
-    "account",
-    "account_no",
-    "acct",
-)
+LOG_DIR = os.path.dirname(os.path.abspath(__file__))
+SENSITIVE_KEYS = {"token", "access_token", "refresh_token", "secret", "password", "authorization"}
 
 
-def log_token_issued(
-    *,
-    provider: str = "kis",
-    env_name: str | None = None,
-    expires_in: int | None = None,
-    expires_at: str | None = None,
-    token: str | None = None,
-    response: dict[str, Any] | None = None,
-    log_dir: Path | str | None = None,
-) -> Path:
-    """Log a successful token issuance without storing the raw token."""
-    payload: dict[str, Any] = {
+def log_token(status, provider="kis", env_name=None, token=None, expires_in=None, message=None, response=None):
+    """토큰 발급, 캐시 사용, 실패 이력을 남깁니다."""
+    data = {
+        "status": status,
         "provider": provider,
         "env_name": env_name,
+        "token_hash": _hash_token(token),
         "expires_in": expires_in,
-        "expires_at": expires_at,
-        "token_hash_prefix": _hash_prefix(token),
+        "message": message,
         "response": response,
     }
-    return log_event("TOKEN_ISSUED", payload, category="auth", log_dir=log_dir)
+    return log_event("TOKEN", data, "auth")
 
 
-def log_token_failed(
-    *,
-    provider: str = "kis",
-    env_name: str | None = None,
-    status_code: int | None = None,
-    error_code: str | None = None,
-    error_message: str | None = None,
-    response: dict[str, Any] | str | None = None,
-    log_dir: Path | str | None = None,
-) -> Path:
-    """Log a failed token issuance attempt."""
-    payload = {
-        "provider": provider,
-        "env_name": env_name,
-        "status_code": status_code,
-        "error_code": error_code,
-        "error_message": error_message,
-        "response": response,
-    }
-    return log_event("TOKEN_ISSUE_FAILED", payload, category="auth", log_dir=log_dir)
-
-
-def log_order_requested(
-    *,
-    market: str,
-    side: str,
-    symbol: str,
-    quantity: int | float | str,
-    price: int | float | str | None = None,
-    order_kind: str | None = None,
-    tr_id: str | None = None,
-    endpoint: str | None = None,
-    request_body: dict[str, Any] | None = None,
-    strategy: str | None = None,
-    log_dir: Path | str | None = None,
-) -> Path:
-    """Log the intent to place an order before calling the broker API."""
-    payload = {
+def log_order(
+    status,
+    market,
+    side,
+    symbol,
+    quantity,
+    price=None,
+    order_type=None,
+    response=None,
+    message=None,
+    strategy=None,
+):
+    """주문 요청, 성공, 실패, 체결 이력을 남깁니다."""
+    data = {
+        "status": status,
         "market": market,
         "side": side,
         "symbol": symbol,
         "quantity": quantity,
         "price": price,
-        "order_kind": order_kind,
-        "tr_id": tr_id,
-        "endpoint": endpoint,
-        "request_body": request_body,
+        "order_type": order_type,
         "strategy": strategy,
-    }
-    return log_event("ORDER_REQUESTED", payload, category="orders", log_dir=log_dir)
-
-
-def log_order_result(
-    *,
-    market: str,
-    side: str,
-    symbol: str,
-    quantity: int | float | str,
-    price: int | float | str | None = None,
-    response: dict[str, Any] | None = None,
-    tr_id: str | None = None,
-    endpoint: str | None = None,
-    strategy: str | None = None,
-    log_dir: Path | str | None = None,
-) -> Path:
-    """Log the broker response after an order request."""
-    success = _is_kis_success(response)
-    payload = {
-        "market": market,
-        "side": side,
-        "symbol": symbol,
-        "quantity": quantity,
-        "price": price,
-        "success": success,
-        "tr_id": tr_id,
-        "endpoint": endpoint,
-        "strategy": strategy,
-        "order_no": _extract_order_no(response),
-        "message_code": _get_first(response, "msg_cd", "msg_code"),
-        "message": _get_first(response, "msg1", "msg"),
+        "message": message,
+        "order_no": _get_order_no(response),
         "response": response,
     }
-    event = "ORDER_ACCEPTED" if success else "ORDER_REJECTED"
-    return log_event(event, payload, category="orders", log_dir=log_dir)
+    return log_event("ORDER", data, "orders")
 
 
-def log_order_exception(
-    *,
-    market: str,
-    side: str,
-    symbol: str,
-    quantity: int | float | str,
-    price: int | float | str | None = None,
-    error: BaseException,
-    tr_id: str | None = None,
-    endpoint: str | None = None,
-    strategy: str | None = None,
-    log_dir: Path | str | None = None,
-) -> Path:
-    """Log an exception raised while placing an order."""
-    payload = {
-        "market": market,
-        "side": side,
-        "symbol": symbol,
-        "quantity": quantity,
-        "price": price,
-        "success": False,
-        "tr_id": tr_id,
-        "endpoint": endpoint,
-        "strategy": strategy,
-        "error_type": type(error).__name__,
-        "error_message": str(error),
-    }
-    return log_event("ORDER_EXCEPTION", payload, category="orders", log_dir=log_dir)
-
-
-def log_event(
-    event: str,
-    payload: dict[str, Any] | None = None,
-    *,
-    category: str = "events",
-    log_dir: Path | str | None = None,
-) -> Path:
-    """Append one sanitized JSON object to a daily JSONL log file."""
+def log_event(event, data, filename_prefix="events"):
+    """날짜별 JSONL 파일에 로그 한 줄을 추가합니다."""
     now = datetime.now().astimezone()
-    target_dir = Path(log_dir) if log_dir is not None else DEFAULT_LOG_DIR
-    target_dir.mkdir(parents=True, exist_ok=True)
-
     record = {
         "time": now.isoformat(timespec="seconds"),
         "event": event,
-        "payload": _sanitize(payload or {}),
+        "data": _hide_sensitive(data),
     }
 
-    path = target_dir / f"{category}_{now:%Y-%m-%d}.jsonl"
-    with path.open("a", encoding="utf-8") as file:
-        file.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+    filename = f"{filename_prefix}_{now:%Y-%m-%d}.jsonl"
+    log_file = os.path.join(LOG_DIR, filename)
 
-    return path
+    with open(log_file, "a", encoding="utf-8") as file:
+        file.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    return log_file
 
 
-def _sanitize(value: Any) -> Any:
+def _hide_sensitive(value):
+    """응답 데이터 안의 토큰/비밀번호 같은 값을 숨깁니다."""
     if isinstance(value, dict):
-        return {str(key): _sanitize_key_value(str(key), item) for key, item in value.items()}
+        result = {}
+        for key, item in value.items():
+            if str(key).lower() in SENSITIVE_KEYS:
+                result[key] = "<hidden>"
+            else:
+                result[key] = _hide_sensitive(item)
+        return result
 
     if isinstance(value, list):
-        return [_sanitize(item) for item in value]
-
-    if isinstance(value, tuple):
-        return [_sanitize(item) for item in value]
+        return [_hide_sensitive(item) for item in value]
 
     return value
 
 
-def _sanitize_key_value(key: str, value: Any) -> Any:
-    normalized = key.lower()
-
-    if any(keyword in normalized for keyword in SENSITIVE_KEYWORDS):
-        return _redact_secret(value)
-
-    if any(keyword in normalized for keyword in ACCOUNT_KEYWORDS):
-        return _mask_account(value)
-
-    return _sanitize(value)
-
-
-def _redact_secret(value: Any) -> str | None:
-    if value in (None, ""):
+def _hash_token(token):
+    """토큰 원문 대신 짧은 해시만 저장합니다."""
+    if not token:
         return None
-
-    text = str(value)
-    return f"<redacted:{_hash_prefix(text) or 'empty'}>"
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()[:12]
 
 
-def _mask_account(value: Any) -> Any:
-    if value in (None, ""):
-        return value
-
-    text = str(value)
-    if len(text) <= 4:
-        return "*" * len(text)
-
-    return f"{text[:2]}{'*' * (len(text) - 4)}{text[-2:]}"
-
-
-def _hash_prefix(value: str | None, length: int = 12) -> str | None:
-    if not value:
-        return None
-
-    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()
-    return digest[:length]
-
-
-def _is_kis_success(response: dict[str, Any] | None) -> bool:
-    if not isinstance(response, dict):
-        return False
-
-    return str(response.get("rt_cd", "")) == "0"
-
-
-def _extract_order_no(response: dict[str, Any] | None) -> str | None:
+def _get_order_no(response):
+    """KIS 주문 응답에서 주문번호를 꺼냅니다."""
     if not isinstance(response, dict):
         return None
 
-    for section_name in ("output", "output1", "output2"):
-        section = response.get(section_name)
-        if isinstance(section, dict):
-            order_no = _get_first(section, "ODNO", "odno", "order_no")
-            if order_no:
-                return str(order_no)
+    output = response.get("output")
+    if isinstance(output, dict):
+        return output.get("ODNO") or output.get("odno")
 
-    order_no = _get_first(response, "ODNO", "odno", "order_no")
-    return str(order_no) if order_no else None
-
-
-def _get_first(data: dict[str, Any] | None, *keys: str) -> Any:
-    if not isinstance(data, dict):
-        return None
-
-    for key in keys:
-        value = data.get(key)
-        if value not in (None, ""):
-            return value
-
-    return None
+    return response.get("ODNO") or response.get("odno")
