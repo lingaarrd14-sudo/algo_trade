@@ -1,19 +1,17 @@
 """
 주문/토큰 발급 로그를 JSONL 파일로 남기는 간단한 모듈.
 
-로그 파일은 interface 폴더에 바로 저장됩니다.
-예: interface/orders_2026-08-15.jsonl
+로그 파일은 interface 폴더에 저장됩니다.
+예: interface/2026-08-15.jsonl
 """
 
 import hashlib
 import json
-import os
+from pathlib import Path
 from datetime import datetime
 
-
-LOG_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_DIR = Path(__file__).resolve().parents[1] / "interface"
 SENSITIVE_KEYS = {"token", "access_token", "refresh_token", "secret", "password", "authorization"}
-
 
 def log_token(status, provider="kis", env_name=None, token=None, expires_in=None, message=None, response=None):
     """토큰 발급, 캐시 사용, 실패 이력을 남깁니다."""
@@ -26,7 +24,7 @@ def log_token(status, provider="kis", env_name=None, token=None, expires_in=None
         "message": message,
         "response": response,
     }
-    return log_event("TOKEN", data, "auth")
+    return log_event("TOKEN", data)
 
 
 def log_order(
@@ -39,7 +37,6 @@ def log_order(
     order_type=None,
     response=None,
     message=None,
-    strategy=None,
 ):
     """주문 요청, 성공, 실패, 체결 이력을 남깁니다."""
     data = {
@@ -50,15 +47,14 @@ def log_order(
         "quantity": quantity,
         "price": price,
         "order_type": order_type,
-        "strategy": strategy,
         "message": message,
         "order_no": _get_order_no(response),
         "response": response,
     }
-    return log_event("ORDER", data, "orders")
+    return log_event("ORDER", data)
 
 
-def log_event(event, data, filename_prefix="events"):
+def log_event(event, data):
     """날짜별 JSONL 파일에 로그 한 줄을 추가합니다."""
     now = datetime.now().astimezone()
     record = {
@@ -67,13 +63,13 @@ def log_event(event, data, filename_prefix="events"):
         "data": _hide_sensitive(data),
     }
 
-    filename = f"{filename_prefix}_{now:%Y-%m-%d}.jsonl"
-    log_file = os.path.join(LOG_DIR, filename)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_file = LOG_DIR / f"{now:%Y-%m-%d}.jsonl"
 
-    with open(log_file, "a", encoding="utf-8") as file:
+    with log_file.open("a", encoding="utf-8") as file:
         file.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-    return log_file
+    return str(log_file)
 
 
 def _hide_sensitive(value):

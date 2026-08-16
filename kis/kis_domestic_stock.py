@@ -7,6 +7,7 @@ from datetime import datetime
 
 from . import kis_client
 from . import kis_config
+from .trading_logger import log_order
 
 def today_yyyymmdd() -> str:
     """오늘 날짜를 KIS API 규격인 YYYYMMDD 형태의 문자열로 반환합니다."""
@@ -61,12 +62,25 @@ def order_stock(token: str, order_type: str, stock_code: str, quantity: int, pri
         "SLL_TYPE": "",                # 공매도 유형 (일반 유저 필수 공백)
         "CNDT_PRIC": "",               # 조건부 가격 구분 (일반 유저 필수 공백)
     }
-    return kis_client.post_order(
+    result = kis_client.post_order(
         endpoint=kis_config.DOMESTIC_ORDER_ENDPOINT,
         tr_id=tr_id,
         token=token,
         body=body,
     )
+
+    log_order(
+        status="success" if str(result.get("rt_cd", "")) == "0" else "failed",
+        market="domestic",
+        side=order_type,
+        symbol=stock_code,
+        quantity=quantity,
+        price=price,
+        response=result,
+        message=result.get("msg1"),
+    )
+
+    return result
 
 
 def inquire_order_history(token: str, filled: str = "00") -> dict:
