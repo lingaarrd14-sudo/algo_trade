@@ -13,9 +13,9 @@ if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
 from kis.kis_auth import issue_access_token
-import kis.kis_domestic_stock as domestic
-import kis.kis_overseas_stock as overseas
-import interface.kis_formatter as formatter
+import kis.kis_domestic as domestic
+import kis.kis_overseas as overseas
+import interface.formatter as formatter
 
 
 def display_menu() -> None:
