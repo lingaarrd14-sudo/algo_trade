@@ -3,7 +3,7 @@ import time
 import requests
 
 from . import kis_config
-from .trading_logger import log_token
+from .logger import log_token
 
 # =========================================================
 # Access Token 캐시 관리

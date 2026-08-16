@@ -17,8 +17,8 @@ if ROOT_DIR not in sys.path:
 from kis.kis_auth import issue_access_token
 
 # 국내/해외 주식 모듈을 별칭으로 임포트
-import kis.kis_domestic_stock as domestic
-import kis.kis_overseas_stock as overseas
+import kis.kis_domestic as domestic
+import kis.kis_overseas as overseas
 
 
 # =========================================================

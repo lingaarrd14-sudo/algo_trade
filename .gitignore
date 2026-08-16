@@ -5,4 +5,4 @@ __pycache__/
 .venv/
 venv/
 *.key
-interface/*.jsonl
+interface/logs/*.jsonl

@@ -5,7 +5,7 @@
 
 from . import kis_client
 from . import kis_config
-from .trading_logger import log_order
+from .logger import log_order
 
 # ↓ 26.07.05 추가: 해외 주문/체결 조회 함수가 오늘 날짜를 정상적으로 보내도록 날짜 모듈 추가
 from datetime import datetime

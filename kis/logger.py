@@ -1,8 +1,8 @@
 """
 주문/토큰 발급 로그를 JSONL 파일로 남기는 간단한 모듈.
 
-로그 파일은 interface 폴더에 저장됩니다.
-예: interface/2026-08-15.jsonl
+로그 파일은 interface/logs 폴더에 저장됩니다.
+예: interface/logs/2026-08-15.jsonl
 """
 
 import hashlib
@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-LOG_DIR = Path(__file__).resolve().parents[1] / "interface"
+LOG_DIR = Path(__file__).resolve().parents[1] / "interface/logs"
 SENSITIVE_KEYS = {"token", "access_token", "refresh_token", "secret", "password", "authorization"}
 
 def log_token(status, provider="kis", env_name=None, token=None, expires_in=None, message=None, response=None):
