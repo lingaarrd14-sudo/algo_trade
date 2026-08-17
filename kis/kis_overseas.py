@@ -5,6 +5,7 @@
 
 from . import kis_client
 from . import kis_config
+from .logger import log_order
 
 # ↓ 26.07.05 추가: 해외 주문/체결 조회 함수가 오늘 날짜를 정상적으로 보내도록 날짜 모듈 추가
 from datetime import datetime
@@ -59,12 +60,25 @@ def order_stock(token: str, order_type: str, market_code: str, ticker: str, quan
         "ORD_SVR_DVSN_CD": "0",        # 주문서버구분코드
         "ORD_DVSN": "01",              # 01: 시장가 주문
     }
-    return kis_client.post_order(
+    result = kis_client.post_order(
         endpoint=kis_config.OVERSEAS_ORDER_ENDPOINT,
         tr_id=tr_id,
         token=token,
         body=body,
     )
+
+    log_order(
+        status="success" if str(result.get("rt_cd", "")) == "0" else "failed",
+        market="overseas",
+        side=order_type,
+        symbol=ticker,
+        quantity=quantity,
+        price=price,
+        response=result,
+        message=result.get("msg1"),
+    )
+
+    return result
 
 def inquire_order_history(token: str, filled: str = "00") -> dict:
     """

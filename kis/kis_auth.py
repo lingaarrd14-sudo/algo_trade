@@ -3,6 +3,7 @@ import time
 import requests
 
 from . import kis_config
+from .logger import log_token
 
 # =========================================================
 # Access Token 캐시 관리
@@ -62,10 +63,21 @@ def issue_access_token() -> str:
     # 캐시에 유효한 토큰이 있으면 재사용
     cached = _read_cached_token()
     if cached:
+        log_token(
+            status="cached",
+            env_name=kis_config.KIS_ENV,
+            token=cached,
+            message="캐시된 토큰 사용",
+        )
         return cached
 
     # 인증 정보가 없으면 실행 중단
     if not kis_config.APP_KEY or not kis_config.APP_SECRET:
+        log_token(
+            status="failed",
+            env_name=kis_config.KIS_ENV,
+            message=".env 파일에 KIS_APP_KEY 또는 KIS_APP_SECRET이 없습니다.",
+        )
         raise RuntimeError(".env 파일에 KIS_APP_KEY 또는 KIS_APP_SECRET이 없습니다.")
 
     url = f"{kis_config.get_base_url()}{kis_config.TOKEN_ENDPOINT}"
@@ -84,6 +96,12 @@ def issue_access_token() -> str:
     )
 
     if response.status_code >= 400:
+        log_token(
+            status="failed",
+            env_name=kis_config.KIS_ENV,
+            message=f"토큰 발급 실패: {response.status_code}",
+            response=response.text,
+        )
         raise RuntimeError(f"토큰 발급 실패: {response.status_code} / {response.text}")
 
     data = response.json()
@@ -92,5 +110,12 @@ def issue_access_token() -> str:
 
     # 새 토큰을 캐시에 저장
     _write_cached_token(token, expires_in)
+    log_token(
+        status="success",
+        env_name=kis_config.KIS_ENV,
+        token=token,
+        expires_in=expires_in,
+        message="새 토큰 발급",
+    )
 
     return token
