@@ -62,7 +62,7 @@ def format_domestic_balance(data: dict) -> str:
     lines.append("-" * 60)
 
     # 3. 종목별 상세 현황 파싱 (output1)
-    output1 = data.get("output1", [])
+    output1 = data.get("output1") or data.get("output", [])
     if hasattr(output1, "get"):
         output1 = [output1]
 
@@ -243,7 +243,7 @@ def format_order_history(data: dict, title: str = "당일 주문/체결 내역")
     if rt_cd != "0":
         return f"❌ [{title} 조회 실패] {msg}"
 
-    output1 = data.get("output1", [])
+    output1 = data.get("output1") or data.get("output", [])
     if hasattr(output1, "get"):
         output1 = [output1]
 

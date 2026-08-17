@@ -138,7 +138,7 @@ def handle_unfilled_orders(token: str) -> None:
         )
         return
 
-    rows = response.get("output1", [])
+    rows = response.get("output", [])
     if isinstance(rows, dict):
         rows = [rows]
 
