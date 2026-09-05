@@ -6,3 +6,4 @@ __pycache__/
 venv/
 *.key
 interface/logs/*.jsonl
+strategy/portfolio_data/runtime/

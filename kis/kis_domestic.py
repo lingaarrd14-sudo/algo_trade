@@ -105,11 +105,13 @@ def inquire_order_history(token: str, filled: str = "00") -> dict:
         "CTX_AREA_NK100": "",          # 연속조회 키 (첫 페이지 요청 시 공백)
         "EXCG_ID_DVSN_CD": "KRX",
     }
-    return kis_client.get(
+    return kis_client.get_all_pages(
         endpoint=kis_config.DOMESTIC_ORDER_HISTORY_ENDPOINT,
         tr_id=tr_id,
         token=token,
         params=params,
+        context_size=100,
+        output_keys=("output1",),
     )
 
 def handle_unfilled_orders(token: str) -> None:
@@ -220,8 +222,36 @@ def inquire_balance(token: str) -> dict:
         "CTX_AREA_FK100": "",
         "CTX_AREA_NK100": "",
     }
-    return kis_client.get(
+    return kis_client.get_all_pages(
         endpoint=kis_config.DOMESTIC_BALANCE_ENDPOINT,
+        tr_id=tr_id,
+        token=token,
+        params=params,
+        context_size=100,
+        output_keys=("output1",),
+    )
+
+
+def inquire_orderable(token: str, stock_code: str, price: float) -> dict:
+    """미수 없이 현금으로 매수할 수 있는 수량을 조회한다."""
+    if price <= 0:
+        raise ValueError("주문 가능 수량 조회 가격은 0보다 커야 합니다.")
+    tr_id = (
+        kis_config.DOMESTIC_ORDERABLE_TR_ID_PAPER
+        if kis_config.is_paper()
+        else kis_config.DOMESTIC_ORDERABLE_TR_ID_REAL
+    )
+    params = {
+        "CANO": kis_config.ACCOUNT_NO,
+        "ACNT_PRDT_CD": kis_config.ACCOUNT_PRODUCT_CODE,
+        "PDNO": stock_code,
+        "ORD_UNPR": str(int(price)),
+        "ORD_DVSN": "01",
+        "CMA_EVLU_AMT_ICLD_YN": "N",
+        "OVRS_ICLD_YN": "N",
+    }
+    return kis_client.get(
+        endpoint=kis_config.DOMESTIC_ORDERABLE_ENDPOINT,
         tr_id=tr_id,
         token=token,
         params=params,

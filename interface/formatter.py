@@ -41,7 +41,7 @@ def format_domestic_balance(data: dict) -> str:
 
     # 2. 계좌 총 요약 정보 파싱 (output2)
     output2 = data.get("output2", [])
-    summary = output2[0] if output2 and not hasattr(output2, "get") else {}
+    summary = output2 if hasattr(output2, "get") else output2[0] if output2 else {}
 
     tot_evlu_amt = _safe_int(summary.get("tot_evlu_amt"))  # 총 평가금액
     dnca_tot_amt = _safe_int(summary.get("dnca_tot_amt"))  # 예수금 (D+2)
@@ -62,7 +62,7 @@ def format_domestic_balance(data: dict) -> str:
     lines.append("-" * 60)
 
     # 3. 종목별 상세 현황 파싱 (output1)
-    output1 = data.get("output1", [])
+    output1 = data.get("output1") or data.get("output", [])
     if hasattr(output1, "get"):
         output1 = [output1]
 
@@ -111,11 +111,14 @@ def format_overseas_balance(data: dict) -> str:
     if rt_cd1 != "0" or rt_cd2 != "0":
         return f"❌ [해외 잔고 조회 실패] {msg1 if rt_cd1 != '0' else msg2}"
 
-    output1 = data["balance"].get("output2", {})
-    if output1 and not hasattr(output1, "get"):
-        output1 = output1[0]
+    summaries = data["balance"].get("output2", [])
+    if hasattr(summaries, "get"):
+        summaries = [summaries]
 
-    tot_evlu_amt = _safe_float(output1.get("tot_evlu_pfls_amt"))  # 외화 총 평가손익 (달러)
+    # 모의투자는 미국 거래소별 요약이 오므로 합산해서 표시합니다.
+    tot_evlu_amt = sum(
+        _safe_float(summary.get("tot_evlu_pfls_amt")) for summary in summaries
+    )
 
     # 달러 예수금 파싱 (inquire_present_balance output3 단일 직관 추출)
     frcr_dncl = 0.0
@@ -243,7 +246,7 @@ def format_order_history(data: dict, title: str = "당일 주문/체결 내역")
     if rt_cd != "0":
         return f"❌ [{title} 조회 실패] {msg}"
 
-    output1 = data.get("output1", [])
+    output1 = data.get("output1") or data.get("output", [])
     if hasattr(output1, "get"):
         output1 = [output1]
 

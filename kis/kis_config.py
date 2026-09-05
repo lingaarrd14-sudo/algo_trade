@@ -11,8 +11,13 @@ from dotenv import load_dotenv
 # 1. 환경 변수(.env) 로드 및 기본 디렉토리 설정
 # =========================================================
 BASE_DIR = Path(__file__).parent
-# override=True를 주어 시스템 환경변수보다 .env 파일의 설정을 우선하도록 합니다.
-load_dotenv(BASE_DIR / ".env", override=True)
+ROOT_DIR = BASE_DIR.parent
+
+# kis/.env 파일이 있으면 우선 로드하고, 없으면 루트 디렉토리의 .env 파일을 로드합니다.
+if (BASE_DIR / ".env").exists():
+    load_dotenv(BASE_DIR / ".env", override=True)
+else:
+    load_dotenv(ROOT_DIR / ".env", override=True)
 
 # =========================================================
 # 2. 실행 환경 및 계좌 인증 정보 관리
@@ -65,6 +70,11 @@ DOMESTIC_BALANCE_ENDPOINT = "/uapi/domestic-stock/v1/trading/inquire-balance"
 DOMESTIC_BALANCE_TR_ID_REAL = "TTTC8434R"  # 실전 잔고
 DOMESTIC_BALANCE_TR_ID_PAPER = "VTTC8434R" # 모의 잔고
 
+# [국내] 현금 매수 가능 수량 조회
+DOMESTIC_ORDERABLE_ENDPOINT = "/uapi/domestic-stock/v1/trading/inquire-psbl-order"
+DOMESTIC_ORDERABLE_TR_ID_REAL = "TTTC8908R"
+DOMESTIC_ORDERABLE_TR_ID_PAPER = "VTTC8908R"
+
 # [국내] 주문 정정/취소
 DOMESTIC_REVISE_CANCEL_TR_ID_PAPER = "VTTC0013U"
 DOMESTIC_REVISE_CANCEL_TR_ID_REAL = "TTTC0013U"
@@ -78,9 +88,15 @@ OVERSEAS_PRICE_TR_ID = "HHDFS00000300"
 # [해외] 주식 주문 (26.07.05 수정): 공식api문서 TR ID로 교체
 OVERSEAS_ORDER_ENDPOINT = "/uapi/overseas-stock/v1/trading/order"
 OVERSEAS_BUY_TR_ID_REAL = "TTTT1002U"   
-OVERSEAS_SELL_TR_ID_REAL = "TTTT1001U"  
+OVERSEAS_SELL_TR_ID_REAL = "TTTT1006U"
 OVERSEAS_BUY_TR_ID_PAPER = "VTTT1002U"  
 OVERSEAS_SELL_TR_ID_PAPER = "VTTT1001U" 
+
+# 홍콩 주문은 미국 주문과 TR ID가 다릅니다.
+HONG_KONG_BUY_TR_ID_REAL = "TTTS1002U"
+HONG_KONG_SELL_TR_ID_REAL = "TTTS1001U"
+HONG_KONG_BUY_TR_ID_PAPER = "VTTS1002U"
+HONG_KONG_SELL_TR_ID_PAPER = "VTTS1001U"
 
 # [해외] 주문/체결 조회 (끝부분을 ccnl 로 수정) (26.07.05 수정)
 OVERSEAS_ORDER_HISTORY_ENDPOINT = "/uapi/overseas-stock/v1/trading/inquire-ccnl"
@@ -97,9 +113,10 @@ OVERSEAS_REVISE_CANCEL_ENDPOINT = "/uapi/overseas-stock/v1/trading/order-rvsecnc
 OVERSEAS_REVISE_CANCEL_TR_ID_PAPER = "VTTT1004U"
 OVERSEAS_REVISE_CANCEL_TR_ID_REAL = "TTTT1004U"
 
-# [해외] 주문 가능 금액 조회 (모의투자에만 필요)
+# [해외] 주문 가능 금액 조회
 OVERSEAS_POSITION_AMOUNT_ENDPOINT = "/uapi/overseas-stock/v1/trading/inquire-psamount"
 OVERSEAS_POSITION_AMOUNT_TR_ID_PAPER = "VTTS3007R"
+OVERSEAS_POSITION_AMOUNT_TR_ID_REAL = "TTTS3007R"
 # =========================================================
 # 7. 실행 환경 판단용 헬퍼 함수
 # =========================================================

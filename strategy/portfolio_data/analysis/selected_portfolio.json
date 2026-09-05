@@ -1,0 +1,127 @@
+{
+  "as_of": "2026-09-04",
+  "analysis_start": "2021-09-04",
+  "analysis_end": "2026-09-04",
+  "base_currency": "KRW",
+  "fx_method": "historical_daily_usdkrw_backward_5d",
+  "fx_symbol": "FX@KRW",
+  "latest_fx": 1350.1,
+  "price_frequency": "W-FRI",
+  "data_quality": "PASS",
+  "universe": [
+    {
+      "country": "KR",
+      "symbol": "069500",
+      "name": "KODEX 200",
+      "exchange": "KRX"
+    },
+    {
+      "country": "KR",
+      "symbol": "226490",
+      "name": "KODEX 코스피",
+      "exchange": "KRX"
+    },
+    {
+      "country": "KR",
+      "symbol": "292190",
+      "name": "KODEX KRX300",
+      "exchange": "KRX"
+    },
+    {
+      "country": "KR",
+      "symbol": "229200",
+      "name": "KODEX KOSDAQ150",
+      "exchange": "KRX"
+    },
+    {
+      "country": "KR",
+      "symbol": "226980",
+      "name": "KODEX 200중소형",
+      "exchange": "KRX"
+    },
+    {
+      "country": "KR",
+      "symbol": "275290",
+      "name": "KODEX 가치주",
+      "exchange": "KRX"
+    },
+    {
+      "country": "US",
+      "symbol": "IVV",
+      "name": "iShares Core S&P 500 ETF",
+      "exchange": "AMS"
+    },
+    {
+      "country": "US",
+      "symbol": "ITOT",
+      "name": "iShares Core S&P Total US Market ETF",
+      "exchange": "AMS"
+    },
+    {
+      "country": "US",
+      "symbol": "IWM",
+      "name": "iShares Russell 2000 ETF",
+      "exchange": "AMS"
+    },
+    {
+      "country": "US",
+      "symbol": "IJS",
+      "name": "iShares S&P Small-Cap 600 Value ETF",
+      "exchange": "AMS"
+    },
+    {
+      "country": "US",
+      "symbol": "IWD",
+      "name": "iShares Russell 1000 Value ETF",
+      "exchange": "AMS"
+    },
+    {
+      "country": "US",
+      "symbol": "IWF",
+      "name": "iShares Russell 1000 Growth ETF",
+      "exchange": "AMS"
+    }
+  ],
+  "outputs": {
+    "weekly_prices": "weekly_prices_krw.csv",
+    "weekly_returns": "weekly_returns.csv",
+    "asset_metrics": "asset_metrics.csv",
+    "correlation": "correlation.csv",
+    "combination_metrics": "combination_metrics.csv",
+    "selected_portfolio": "selected_portfolio.json"
+  },
+  "schema_version": 1,
+  "method": "minimum_variance_grid_5pct",
+  "expected_return": 0.1654253663027001,
+  "expected_volatility": 0.1289137747451715,
+  "portfolio": [
+    {
+      "country": "KR",
+      "symbol": "226980",
+      "name": "KODEX 200중소형",
+      "exchange": "KRX",
+      "weight": 0.15
+    },
+    {
+      "country": "KR",
+      "symbol": "275290",
+      "name": "KODEX 가치주",
+      "exchange": "KRX",
+      "weight": 0.15
+    },
+    {
+      "country": "US",
+      "symbol": "IVV",
+      "name": "iShares Core S&P 500 ETF",
+      "exchange": "AMS",
+      "weight": 0.3
+    },
+    {
+      "country": "US",
+      "symbol": "IWD",
+      "name": "iShares Russell 1000 Value ETF",
+      "exchange": "AMS",
+      "weight": 0.4
+    }
+  ]
+}
