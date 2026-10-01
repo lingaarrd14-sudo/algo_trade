@@ -56,9 +56,9 @@ def order_stock(token: str, order_type: str, market_code: str, ticker: str, quan
         "OVRS_EXCG_CD": market_code,   # 주문용 거래소 코드 (주의: 시세용과 다름)
         "PDNO": ticker,                # 종목 티커
         "ORD_QTY": str(quantity),      # 수량 문자열
-        "OVRS_ORD_UNPR": "0",          # 시장가 주문은 단가 0
+        "OVRS_ORD_UNPR": str(price),   # 지정가 주문 단가 (1주당 가격)
         "ORD_SVR_DVSN_CD": "0",        # 주문서버구분코드
-        "ORD_DVSN": "01",              # 01: 시장가 주문
+        "ORD_DVSN": "00",              # 00: 지정가 (미국 모의투자는 지정가만 가능)
     }
     result = kis_client.post_order(
         endpoint=kis_config.OVERSEAS_ORDER_ENDPOINT,

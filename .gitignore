@@ -6,3 +6,9 @@ __pycache__/
 venv/
 *.key
 interface/logs/*.jsonl
+
+# 로컬 전용 하네스 문서 (저장소에 올리지 않음)
+CLAUDE.md
+
+# portfolio.py 실행 시 생성되는 목표 비중 파일
+strategy/target_weights.json
